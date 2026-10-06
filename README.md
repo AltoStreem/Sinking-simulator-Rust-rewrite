@@ -1,12 +1,9 @@
-# Sinking Simulator decompiled source
+# Sinking Simulator source reference
 
-`source/` contains CFR decompilation of the `com.wicpar.sinkingsimulator` game and `com.wicpar.engine` code from `SS2/lib/sinkingsimulator-4.0-all.jar`.
+SS2/decompiled/com/wicpar contains 217 CFR 0.152 Java-like reference files for the game and its engine, reconstructed from SS2/lib/sinkingsimulator-4.0-all.jar.
 
-The archive contains compiled Kotlin/JVM classes rather than original source. CFR expresses them as Java-like `.java` files, so names, comments, and some Kotlin constructs may be missing or imperfect. Treat this as a readable reference; it is not a ready-to-build replacement project.
+The archive contains compiled Kotlin/JVM classes rather than original source. Decompiled names, comments, and Kotlin constructs may be missing or imperfect, and this output is not a ready-to-build replacement project. The original archive and three earlier focused decompilations are preserved beside it. The CFR tool was run from the local Decompile workspace and is not required to run the Rust port.
 
-The decompiler used is in `tools/cfr-0.150.jar`.
+## Rust port
 
-this is a rust rewrite of the sinking simulator game
-
-In order to run
-You must own a copy of sinking simulator 2
+rust-port contains the ongoing Bevy rewrite. See rust-port/README.md for build and control information. The game assets in SS2 belong to their respective creators; keep them local and follow their licenses.

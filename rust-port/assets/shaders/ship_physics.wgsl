@@ -22,6 +22,12 @@ var<storage, read_write> water_outflow_1: array<vec4<f32>>;
 @group(0) @binding(7)
 var<storage, read_write> water_outflow_2: array<vec4<f32>>;
 
+@group(0) @binding(8)
+var<storage, read_write> water_velocity_1: array<vec4<f32>>;
+
+@group(0) @binding(9)
+var<storage, read_write> water_velocity_2: array<vec4<f32>>;
+
 const DIRECTIONS: array<vec2<i32>, 8> = array<vec2<i32>, 8>(
     vec2<i32>(1, 0),
     vec2<i32>(1, 1),
@@ -83,7 +89,7 @@ fn neighbor_index(index: u32, direction: u32) -> u32 {
 fn wave_height(x: f32, time: f32) -> f32 {
     let wave_size = settings[2].zw;
     let inverse_wave = 3.141592 / wave_size.x;
-    return -16.0 + (
+    return (
         sin(x * inverse_wave + time * 0.3) * 0.7
         + sin(inverse_wave * 3.0 * x - time) * 0.3
         + 1.0
@@ -95,6 +101,13 @@ fn outflow_weight(index: u32, direction: u32) -> f32 {
         return water_outflow_1[index][direction];
     }
     return water_outflow_2[index][direction - 4u];
+}
+
+fn stored_outflow_velocity(index: u32, direction: u32) -> f32 {
+    if direction < 4u {
+        return water_velocity_1[index][direction];
+    }
+    return water_velocity_2[index][direction - 4u];
 }
 
 fn is_water_flow_cell(index: u32) -> bool {
@@ -137,7 +150,7 @@ fn forces(@builtin(global_invocation_id) invocation: vec3<u32>) {
     var output_force = force_buffer[index].xy;
     var struts = current_mask.y;
     let material = materials[index];
-    if current_mask.x != 0u && (current_mask.x & 4u) == 0u && material.x != 0.0 {
+    if current_mask.x != 0u && (current_mask.x & 4u) == 0u && material.w != 0.0 {
         let dimensions_iterations_delta = settings[0];
         let gravity_rigidity_damping_strength = settings[1];
         let position = positions[index];
@@ -155,7 +168,7 @@ fn forces(@builtin(global_invocation_id) invocation: vec3<u32>) {
                 continue;
             }
             let neighbor_material = materials[neighbor];
-            if neighbor_material.x == 0.0 {
+            if neighbor_material.w == 0.0 {
                 struts &= ~bit;
                 continue;
             }
@@ -163,15 +176,14 @@ fn forces(@builtin(global_invocation_id) invocation: vec3<u32>) {
             let neighbor_position = positions[neighbor];
             let difference = neighbor_position - position;
             let length = length(difference.xy);
-            if length <= 0.0 {
-                continue;
-            }
             let soft = select(1.0, 0.001, ((current_mask.x | neighbor_mask.x) & 1u) != 0u);
-            let spring_mass = min(material.x, neighbor_material.x);
+            let spring_mass = min(material.w, neighbor_material.w);
             let stiffness = 750.0 * spring_mass * b * gravity_rigidity_damping_strength.y;
             let elastic_load = (length - SPRING_LENGTHS[direction]) * stiffness * soft;
-            output_force += normalize(difference.xy) * elastic_load
-                + b * gravity_rigidity_damping_strength.z * difference.zw;
+            if any(difference.xy != vec2<f32>(0.0)) {
+                output_force += normalize(difference.xy) * elastic_load
+                    + b * gravity_rigidity_damping_strength.z * difference.zw;
+            }
 
             let shared_material = min(material, neighbor_material);
             let limit = select(shared_material.z, shared_material.y, elastic_load >= 0.0);
@@ -194,18 +206,19 @@ fn forces(@builtin(global_invocation_id) invocation: vec3<u32>) {
         let density = select(WATER, AIR, position.y >= wave);
         let speed = position.zw + vec2<f32>(0.0, wave_velocity);
         if any(speed != vec2<f32>(0.0)) {
-            let exposed_area = select(0.01, 0.5, current_mask.z != 255u);
+            let exposed_area = select(0.01, 0.5, (current_mask.z & struts) != 255u);
             output_force -= normalize(speed) * 0.5 * dot(speed, speed) * density
                 * exposed_area * settings[2].x;
         }
         let gravity = vec2<f32>(0.0, -gravity_rigidity_damping_strength.x);
         output_force -= density * settings[2].y * gravity;
-        output_force = output_force / material.x + gravity;
+        output_force = output_force / material.w + gravity;
     }
 
     force_buffer[index] = vec4<f32>(output_force, 0.0, 0.0);
     masks[index].y = struts;
     masks[index].z &= struts;
+    masks[index].w = 0u;
 }
 
 @compute @workgroup_size(64, 1, 1)
@@ -250,7 +263,11 @@ fn water_fill(@builtin(global_invocation_id) invocation: vec3<u32>) {
     var output_water = water_buffer[index];
     let position = positions[index];
     let state = masks[index];
-    if !is_water_flow_cell(index) {
+    // Source water fill runs for every live, non-ground material texel. Hull
+    // and rope texels store the outside water depth here; the following
+    // material-mass pass uses it to reproduce the source buoyancy response.
+    // Interior water transfer itself remains restricted to flow cells.
+    if state.x == 0u || (state.x & 4u) != 0u {
         water_buffer[water_index] = output_water;
         return;
     }
@@ -279,6 +296,8 @@ fn water_flow(@builtin(global_invocation_id) invocation: vec3<u32>) {
     if !is_water_flow_cell(index) {
         water_outflow_1[index] = vec4<f32>(0.0);
         water_outflow_2[index] = vec4<f32>(0.0);
+        water_velocity_1[index] = vec4<f32>(0.0);
+        water_velocity_2[index] = vec4<f32>(0.0);
         return;
     }
 
@@ -286,14 +305,18 @@ fn water_flow(@builtin(global_invocation_id) invocation: vec3<u32>) {
     let water = water_buffer[index + count];
     var weights = vec4<f32>(0.0);
     var weights_2 = vec4<f32>(0.0);
+    var velocities = vec4<f32>(0.0);
+    var velocities_2 = vec4<f32>(0.0);
     var total_weight = 0.0;
     for (var direction = 0u; direction < 8u; direction += 1u) {
         let velocity = outflow_velocity(index, direction);
         let weight = velocity * FLOW_LENGTHS[direction];
         if direction < 4u {
             weights[direction] = weight;
+            velocities[direction] = velocity;
         } else {
             weights_2[direction - 4u] = weight;
+            velocities_2[direction - 4u] = velocity;
         }
         total_weight += weight;
     }
@@ -303,6 +326,8 @@ fn water_flow(@builtin(global_invocation_id) invocation: vec3<u32>) {
     }
     water_outflow_1[index] = weights * normal_factor;
     water_outflow_2[index] = weights_2 * normal_factor;
+    water_velocity_1[index] = velocities;
+    water_velocity_2[index] = velocities_2;
 }
 
 @compute @workgroup_size(64, 1, 1)
@@ -312,13 +337,15 @@ fn water_transport(@builtin(global_invocation_id) invocation: vec3<u32>) {
     if index >= count {
         return;
     }
+    let input_water = water_buffer[index + count];
     if !is_water_flow_cell(index) {
+        // Preserve material-cell water depth while the interior flow pass runs.
+        water_buffer[index + count * 2u] = input_water;
         return;
     }
 
     let position = positions[index];
     let state = masks[index];
-    let input_water = water_buffer[index + count];
     var output_water = input_water;
     var momentum = output_water.zw * output_water.x;
     let is_permeable = (state.x & 2u) == 0u;
@@ -341,13 +368,13 @@ fn water_transport(@builtin(global_invocation_id) invocation: vec3<u32>) {
         if permeable {
             let opposite = (direction + 4u) & 7u;
             let neighbor_weight = outflow_weight(neighbor, opposite);
-            let neighbor_velocity = outflow_velocity(neighbor, opposite);
+            let neighbor_velocity = stored_outflow_velocity(neighbor, opposite);
             output_water.x -= direction_weight;
             momentum -= input_water.zw * direction_weight;
             output_water.x += neighbor_weight;
             momentum -= normal * neighbor_velocity * neighbor_weight;
         } else {
-            let velocity = outflow_velocity(index, direction);
+            let velocity = stored_outflow_velocity(index, direction);
             momentum -= normal * velocity * direction_weight;
         }
     }
@@ -376,7 +403,7 @@ fn update_mass(@builtin(global_invocation_id) invocation: vec3<u32>) {
     let hull = (state.x & 2u) != 0u;
     let water_weight = select(settings[4].z, 1.0, hull);
     let fluid_density = mix(AIR, WATER * water_weight, amount);
-    materials[index].x = mix(materials[index].w, fluid_density, settings[4].w);
+    materials[index].w = mix(materials[index].x, fluid_density, settings[4].w);
 }
 
 @compute @workgroup_size(64, 1, 1)
@@ -386,4 +413,79 @@ fn commit_water(@builtin(global_invocation_id) invocation: vec3<u32>) {
         return;
     }
     water_buffer[index] = water_buffer[index + cell_count() * 2u];
+}
+
+// ShipPhysics.posChangePass: move all points, including air and ground, without
+// changing velocities. Kept separate from integration so paused moves commit.
+@compute @workgroup_size(64, 1, 1)
+fn move_positions(@builtin(global_invocation_id) invocation: vec3<u32>) {
+    let index = invocation.x;
+    if index >= cell_count() { return; }
+    positions[index] = vec4<f32>(positions[index].xy + settings[5].xy, positions[index].zw);
+}
+
+// Original FloodTool/DryTool sample the current position/water textures. Do not
+// upload a stale CPU snapshot or discard momentum and transport state planes.
+@compute @workgroup_size(64, 1, 1)
+fn brush_water(@builtin(global_invocation_id) invocation: vec3<u32>) {
+    let index = invocation.x;
+    if index >= cell_count() { return; }
+    let brush = settings[6];
+    if brush.w == 0.0 { return; }
+    let dist = distance(positions[index].xy, brush.xy);
+    if dist < brush.z {
+        let amount = brush.z - dist;
+        if brush.w > 0.0 { water_buffer[index].x += amount; }
+        else { water_buffer[index].x = max(0.0, water_buffer[index].x - amount); }
+    }
+}
+
+// Original finalPass reads a stable mask texture before repairing reciprocal
+// links. A second plane supplies that snapshot without storage-buffer races.
+@compute @workgroup_size(64, 1, 1)
+fn snapshot_masks(@builtin(global_invocation_id) invocation: vec3<u32>) {
+    let index = invocation.x;
+    if index >= cell_count() { return; }
+    masks[index + cell_count()] = masks[index];
+}
+
+@compute @workgroup_size(64, 1, 1)
+fn repair_masks(@builtin(global_invocation_id) invocation: vec3<u32>) {
+    let index = invocation.x;
+    let count = cell_count();
+    if index >= count { return; }
+    var output_mask = masks[index + count];
+    for (var direction = 0u; direction < 8u; direction += 1u) {
+        let neighbor = neighbor_index(index, direction);
+        var other_struts = 0u;
+        if neighbor != WATER_STATE_OFFSET { other_struts = masks[neighbor + count].y; }
+        let opposite = (direction + 4u) & 7u;
+        if (other_struts & (1u << opposite)) == 0u {
+            let keep = ~(1u << direction);
+            output_mask.y &= keep;
+            output_mask.z &= keep;
+        }
+    }
+    masks[index] = output_mask;
+}
+// BreakTool's pass leaves mask X/W and all physical points intact. It removes
+// links from a cut point and incoming links from its eight live-position peers.
+@compute @workgroup_size(64, 1, 1)
+fn break_links(@builtin(global_invocation_id) invocation: vec3<u32>) {
+    let index = invocation.x;
+    if index >= cell_count() { return; }
+    let brush = settings[7];
+    if brush.w == 0.0 { return; }
+    var links = masks[index].yz;
+    if distance(positions[index].xy, brush.xy) < brush.z { links = vec2<u32>(0u); }
+    for (var direction = 0u; direction < 8u; direction += 1u) {
+        let neighbor = neighbor_index(index, direction);
+        if neighbor != WATER_STATE_OFFSET {
+            if distance(positions[neighbor].xy, brush.xy) < brush.z {
+                links &= vec2<u32>(~(1u << direction));
+            }
+        }
+    }
+    masks[index].y = links.x;
+    masks[index].z = links.y;
 }

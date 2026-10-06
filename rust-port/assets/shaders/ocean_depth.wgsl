@@ -6,12 +6,8 @@
 
 @fragment
 fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
-    let depth = clamp(
-        (depth_params.z - mesh.world_position.y) / max(depth_params.x, 1.0),
-        0.0,
-        1.0,
-    );
-    let depth_t = pow(depth, 0.72);
-    let color = mix(surface_color.rgb, deep_color.rgb, depth_t) * depth_params.y;
-    return vec4<f32>(clamp(color, vec3<f32>(0.0), vec3<f32>(1.0)), 1.0);
+    // Sea.java: mix(col, vec4(0,0,0,1), depth / 1000 * waterDarkness).
+    // This adapter still lacks source framebuffer reflection composition.
+    let depth_t = (depth_params.z - mesh.world_position.y) / 1000.0 * depth_params.y;
+    return mix(surface_color, vec4<f32>(0.0, 0.0, 0.0, 1.0), depth_t);
 }

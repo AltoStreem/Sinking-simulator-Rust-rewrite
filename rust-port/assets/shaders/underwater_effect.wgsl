@@ -16,5 +16,5 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let darkness = clamp(1.0 / max(effect_params.w, 0.1), 0.25, 1.2);
     let strength = (0.18 + caustics * 0.18) * attenuation * darkness;
     let rgb = effect_color.rgb * (0.72 + caustics * 0.55);
-    return vec4<f32>(rgb, clamp(strength, 0.0, 0.38));
+    return vec4<f32>(rgb, clamp(strength * effect_color.a, 0.0, 0.38));
 }

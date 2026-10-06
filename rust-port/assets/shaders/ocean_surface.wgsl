@@ -19,5 +19,5 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let ripple = sin(phase * 2.1 - wave_params.y * 1.4);
     let shimmer = 0.94 + ripple * 0.025 + max(wave, 0.0) * 0.035;
     let color = ocean_color.rgb * shimmer + vec3<f32>(0.12, 0.23, 0.30) * crest * 0.3;
-    return vec4<f32>(color, 1.0);
+    return vec4<f32>(color, ocean_color.a);
 }

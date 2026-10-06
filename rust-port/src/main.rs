@@ -1,7 +1,107 @@
+mod al_buffer;
+mod al_context;
+mod al_context_start_reference;
+mod al_device;
+mod al_resource;
+mod al_source;
+mod al_util_kt;
+mod backed_property;
+mod camera_2d;
+mod camera_control;
+mod dslfix;
+mod enums;
+mod executor_kt;
+mod fbo;
+mod file_reader;
+mod file_reader_kt;
+mod float_data_holder;
+mod float_property;
+mod floor;
+mod force_data;
+mod fragment_shaders;
+mod framebuffer_target;
+mod fullscreen;
+mod game_parameter_provider_kt;
+mod game_parameters;
+mod gl_builder;
+mod gl_context;
+mod gl_data_holder;
+mod gl_resource;
+mod gl_state;
+mod glfw;
+mod glfw_monitors;
+mod gui;
+mod gui_kt;
+mod gui_tool_factory;
+mod i_drawable;
+mod image_data;
+mod input_handler;
+mod input_handler_delegate;
+mod int_property;
+mod jvm_character;
+mod kotlin_helpers;
+mod mask_struts_data;
+mod mass_strength_data;
+mod materials;
+mod mem_util;
+mod model;
+mod monitor;
+mod monitor_scale;
+mod monitor_video_mode;
+mod music_player;
+mod music_player_progress_reference;
+mod music_player_volume_reference;
+mod passes;
+mod pos_vel_data;
+mod render_buffer;
+mod render_fbo;
+mod resource;
+mod screen_fbo;
+mod sea;
+mod shaded_model;
+mod shader;
+mod shader_program;
+mod ship;
+mod ship_data;
+mod ship_physics;
+mod ship_resources;
+mod ship_resource_when_mappings;
+mod ship_upload;
+mod ship_struts;
+mod ship_thumbnail;
+mod sky;
+mod tee_output_stream;
+mod texture;
+mod texture_1d;
+mod texture_2d;
+mod texture_2d_array;
+mod textured_fbo;
+mod time_sync;
+mod time_sync_reporter;
+mod toolbox;
+mod toolbox_references;
+mod toolbox_reload;
+mod toolbox_reload_file_predicate;
+mod toolbox_reload_filesystem;
+mod toolbox_reload_name_comparator;
+mod toolbox_render_3;
+mod toolbox_settings;
+mod toolbox_ship_browser;
+mod tools;
+mod typed_data_holder;
+mod uint8_data_holder;
+mod uv_model;
+mod vao;
+mod vbo;
+mod vector2_property;
+mod vertex_shaders;
+mod water_data;
+mod window;
+mod window_framebuffer_callback;
+
 use bevy::prelude::*;
 use bevy::{
     asset::RenderAssetUsages,
-    audio::Volume,
     camera::{ClearColorConfig, ScalingMode, visibility::RenderLayers},
     input::mouse::{MouseScrollUnit, MouseWheel},
     mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
@@ -23,13 +123,24 @@ use bevy::{
     shader::ShaderRef,
     sprite_render::{AlphaMode2d, Material2d, Material2dPlugin},
 };
+use camera_control::{CameraControlState, handle_camera_control};
+use fragment_shaders::ShipMaterial;
+use mask_struts_data::{build_strut_masks, gpu_mask_data};
+use mass_strength_data::gpu_material_data;
+use ship_physics::{
+    GpuShipPhysicsAssets, GpuShipPhysicsPlugin, GpuShipPhysicsSnapshot, capture_gpu_mask_readback,
+    capture_gpu_ship_physics_readback, capture_gpu_water_readback, gpu_settings,
+    make_gpu_ship_physics_assets, reset_gpu_ship_physics,
+};
+use ship_resources::{ShipLayer, ShipResourceFile, ShipResourceType, parse_resource_path};
 use std::borrow::Cow;
 use std::collections::{HashMap, VecDeque};
+use tools::tool::Tool;
 
 const SEA_LEVEL: f32 = -120.0;
 const WORLD_WIDTH: f32 = 1280.0;
 const SHIP_HALF_WIDTH: f32 = 180.0;
-const DEFAULT_TOOL_SIZE: f32 = 10.0;
+const DEFAULT_TOOL_SIZE: f32 = 1.0;
 const EIGHT_NEIGHBORS: [(isize, isize); 8] = [
     (1, 0),
     (1, 1),
@@ -44,576 +155,101 @@ const EIGHT_NEIGHBORS: [(isize, isize); 8] = [
 const PHYSICS_NODE_PIXELS: usize = 4;
 const DRAG_SEA_COLOR: usize = usize::MAX;
 const DRAG_SEA_HUE: usize = usize::MAX - 1;
-const MUSIC_TRACKS: [&str; 10] = [
-    "music/Kevin Macleod - Dragon and Toast.ogg",
-    "music/Kevin Macleod - Leaving Home.ogg",
-    "music/Kevin Macleod - Unholy Knight.ogg",
-    "music/Kevin Macleod - Stay the Course.ogg",
-    "music/Kevin Macleod - Serene.ogg",
-    "music/Kevin Macleod - Relent.ogg",
-    "music/Kevin Macleod - Oppressive Gloom.ogg",
-    "music/Kevin Macleod - Night Vigil.ogg",
-    "music/Kevin Macleod - Mystery Sax.ogg",
-    "music/Kevin Macleod - Man Down.ogg",
-];
-
+const DRAG_SEA_ALPHA: usize = usize::MAX - 2;
 const GPU_PHYSICS_SHADER: &str = "shaders/ship_physics.wgsl";
 const GPU_PHYSICS_WORKGROUP_SIZE: u32 = 64;
 
-#[derive(Resource, Clone, ExtractResource)]
-struct GpuShipPhysicsAssets {
-    positions: Handle<ShaderBuffer>,
-    materials: Handle<ShaderBuffer>,
-    masks: Handle<ShaderBuffer>,
-    forces: Handle<ShaderBuffer>,
-    settings: Handle<ShaderBuffer>,
-    water: Handle<ShaderBuffer>,
-    water_outflow_1: Handle<ShaderBuffer>,
-    water_outflow_2: Handle<ShaderBuffer>,
-    width: u32,
-    height: u32,
-    iterations: u32,
-    water_steps: u32,
-}
-
-#[derive(Resource, Default)]
-struct GpuShipPhysicsSnapshot {
-    positions: Vec<Vec4>,
-    water: Vec<Vec4>,
-}
-
-struct GpuShipPhysicsPlugin;
-
-impl Plugin for GpuShipPhysicsPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<GpuShipPhysicsSnapshot>()
-            .add_plugins(ExtractResourcePlugin::<GpuShipPhysicsAssets>::default());
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        render_app
-            .add_systems(RenderStartup, initialize_gpu_ship_physics)
-            .add_systems(
-                Render,
-                prepare_gpu_ship_physics_bind_group
-                    .in_set(bevy::render::RenderSystems::PrepareBindGroups),
-            )
-            .add_systems(
-                RenderGraph,
-                dispatch_gpu_ship_physics.before(bevy::core_pipeline::schedule::camera_driver),
-            );
-    }
-}
-
-#[derive(Resource)]
-struct GpuShipPhysicsPipeline {
-    layout: BindGroupLayoutDescriptor,
-    forces: CachedComputePipelineId,
-    integrate: CachedComputePipelineId,
-    water_fill: CachedComputePipelineId,
-    water_flow: CachedComputePipelineId,
-    water_transport: CachedComputePipelineId,
-    update_mass: CachedComputePipelineId,
-    commit_water: CachedComputePipelineId,
-}
-
-#[derive(Resource)]
-struct GpuShipPhysicsBindGroup(BindGroup);
-
-fn initialize_gpu_ship_physics(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    pipeline_cache: Res<PipelineCache>,
-) {
-    let layout = BindGroupLayoutDescriptor::new(
-        "SS2 per-texel ship physics",
-        &BindGroupLayoutEntries::sequential(
-            ShaderStages::COMPUTE,
-            (
-                storage_buffer::<Vec<[f32; 4]>>(false),
-                storage_buffer::<Vec<[f32; 4]>>(false),
-                storage_buffer::<Vec<[u32; 4]>>(false),
-                storage_buffer::<Vec<[f32; 4]>>(false),
-                storage_buffer_read_only::<Vec<[f32; 4]>>(false),
-                storage_buffer::<Vec<[f32; 4]>>(false),
-                storage_buffer::<Vec<[f32; 4]>>(false),
-                storage_buffer::<Vec<[f32; 4]>>(false),
-            ),
-        ),
-    );
-    let shader = asset_server.load(GPU_PHYSICS_SHADER);
-    let forces = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-        label: Some("SS2 per-texel spring force pass".into()),
-        layout: vec![layout.clone()],
-        shader: shader.clone(),
-        entry_point: Some(Cow::from("forces")),
-        ..default()
-    });
-    let integrate = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-        label: Some("SS2 per-texel position pass".into()),
-        layout: vec![layout.clone()],
-        shader: shader.clone(),
-        entry_point: Some(Cow::from("integrate")),
-        ..default()
-    });
-    let water_fill = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-        label: Some("SS2 water ingress pass".into()),
-        layout: vec![layout.clone()],
-        shader: shader.clone(),
-        entry_point: Some(Cow::from("water_fill")),
-        ..default()
-    });
-    let water_flow = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-        label: Some("SS2 water outflow pass".into()),
-        layout: vec![layout.clone()],
-        shader: shader.clone(),
-        entry_point: Some(Cow::from("water_flow")),
-        ..default()
-    });
-    let water_transport = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-        label: Some("SS2 water transport pass".into()),
-        layout: vec![layout.clone()],
-        shader: shader.clone(),
-        entry_point: Some(Cow::from("water_transport")),
-        ..default()
-    });
-    let update_mass = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-        label: Some("SS2 water-weighted material mass pass".into()),
-        layout: vec![layout.clone()],
-        shader: shader.clone(),
-        entry_point: Some(Cow::from("update_mass")),
-        ..default()
-    });
-    let commit_water = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-        label: Some("SS2 water state commit pass".into()),
-        layout: vec![layout.clone()],
-        shader,
-        entry_point: Some(Cow::from("commit_water")),
-        ..default()
-    });
-    commands.insert_resource(GpuShipPhysicsPipeline {
-        layout,
-        forces,
-        integrate,
-        water_fill,
-        water_flow,
-        water_transport,
-        update_mass,
-        commit_water,
-    });
-}
-
-fn prepare_gpu_ship_physics_bind_group(
-    mut commands: Commands,
-    physics: Option<Res<GpuShipPhysicsAssets>>,
-    pipeline: Option<Res<GpuShipPhysicsPipeline>>,
-    gpu_buffers: Res<RenderAssets<GpuShaderBuffer>>,
-    render_device: Res<RenderDevice>,
-    pipeline_cache: Res<PipelineCache>,
-) {
-    let (Some(physics), Some(pipeline)) = (physics, pipeline) else {
-        return;
-    };
-    let (
-        Some(positions),
-        Some(materials),
-        Some(masks),
-        Some(forces),
-        Some(settings),
-        Some(water),
-        Some(water_outflow_1),
-        Some(water_outflow_2),
-    ) = (
-        gpu_buffers.get(&physics.positions),
-        gpu_buffers.get(&physics.materials),
-        gpu_buffers.get(&physics.masks),
-        gpu_buffers.get(&physics.forces),
-        gpu_buffers.get(&physics.settings),
-        gpu_buffers.get(&physics.water),
-        gpu_buffers.get(&physics.water_outflow_1),
-        gpu_buffers.get(&physics.water_outflow_2),
-    )
-    else {
-        return;
-    };
-    let bind_group = render_device.create_bind_group(
-        Some("SS2 per-texel ship physics buffers"),
-        &pipeline_cache.get_bind_group_layout(&pipeline.layout),
-        &BindGroupEntries::sequential((
-            positions.buffer.as_entire_buffer_binding(),
-            materials.buffer.as_entire_buffer_binding(),
-            masks.buffer.as_entire_buffer_binding(),
-            forces.buffer.as_entire_buffer_binding(),
-            settings.buffer.as_entire_buffer_binding(),
-            water.buffer.as_entire_buffer_binding(),
-            water_outflow_1.buffer.as_entire_buffer_binding(),
-            water_outflow_2.buffer.as_entire_buffer_binding(),
-        )),
-    );
-    commands.insert_resource(GpuShipPhysicsBindGroup(bind_group));
-}
-
-fn dispatch_gpu_ship_physics(
-    mut render_context: RenderContext,
-    physics: Option<Res<GpuShipPhysicsAssets>>,
-    bind_group: Option<Res<GpuShipPhysicsBindGroup>>,
-    pipeline: Option<Res<GpuShipPhysicsPipeline>>,
-    pipeline_cache: Res<PipelineCache>,
-) {
-    let (Some(physics), Some(bind_group), Some(pipeline)) = (physics, bind_group, pipeline) else {
-        return;
-    };
-    if physics.iterations == 0 {
-        return;
-    }
-    let (
-        Some(force_pipeline),
-        Some(integrate_pipeline),
-        Some(water_fill_pipeline),
-        Some(water_flow_pipeline),
-        Some(water_transport_pipeline),
-        Some(update_mass_pipeline),
-        Some(commit_water_pipeline),
-    ) = (
-        pipeline_cache.get_compute_pipeline(pipeline.forces),
-        pipeline_cache.get_compute_pipeline(pipeline.integrate),
-        pipeline_cache.get_compute_pipeline(pipeline.water_fill),
-        pipeline_cache.get_compute_pipeline(pipeline.water_flow),
-        pipeline_cache.get_compute_pipeline(pipeline.water_transport),
-        pipeline_cache.get_compute_pipeline(pipeline.update_mass),
-        pipeline_cache.get_compute_pipeline(pipeline.commit_water),
-    )
-    else {
-        return;
-    };
-    let workgroups = physics
-        .width
-        .saturating_mul(physics.height)
-        .div_ceil(GPU_PHYSICS_WORKGROUP_SIZE);
-    let mut pass = render_context
-        .command_encoder()
-        .begin_compute_pass(&ComputePassDescriptor {
-            label: Some("SS2 per-texel ship physics"),
-            ..default()
-        });
-    pass.set_bind_group(0, &bind_group.0, &[]);
-    let water_interval = physics.iterations / physics.water_steps.max(1);
-    for step in 0..physics.iterations {
-        pass.set_pipeline(force_pipeline);
-        pass.dispatch_workgroups(workgroups, 1, 1);
-        pass.set_pipeline(integrate_pipeline);
-        pass.dispatch_workgroups(workgroups, 1, 1);
-        if (step + 1) % water_interval == 0 {
-            pass.set_pipeline(water_fill_pipeline);
-            pass.dispatch_workgroups(workgroups, 1, 1);
-            pass.set_pipeline(water_flow_pipeline);
-            pass.dispatch_workgroups(workgroups, 1, 1);
-            pass.set_pipeline(water_transport_pipeline);
-            pass.dispatch_workgroups(workgroups, 1, 1);
-            pass.set_pipeline(update_mass_pipeline);
-            pass.dispatch_workgroups(workgroups, 1, 1);
-            pass.set_pipeline(commit_water_pipeline);
-            pass.dispatch_workgroups(workgroups, 1, 1);
-        }
-    }
-}
-
-fn capture_gpu_ship_physics_readback(
-    event: On<ReadbackComplete>,
-    mut snapshot: ResMut<GpuShipPhysicsSnapshot>,
-) {
-    let positions: Vec<[f32; 4]> = event.to_shader_type();
-    snapshot.positions = positions.into_iter().map(Vec4::from_array).collect();
-}
-
-fn capture_gpu_water_readback(
-    event: On<ReadbackComplete>,
-    mut snapshot: ResMut<GpuShipPhysicsSnapshot>,
-) {
-    let water: Vec<[f32; 4]> = event.to_shader_type();
-    let count = water.len() / 3;
-    snapshot.water = water
-        .into_iter()
-        .take(count)
-        .map(Vec4::from_array)
-        .collect();
-}
-
-fn make_gpu_ship_physics_assets(
-    structure: &ShipStructure,
-    buffers: &mut Assets<ShaderBuffer>,
-) -> GpuShipPhysicsAssets {
-    let count = structure.texel_width * structure.texel_height;
-    let positions: Vec<[f32; 4]> = structure
-        .texel_rest_positions
-        .iter()
-        .map(|position| [position.x, position.y, 0.0, 0.0])
-        .collect();
-    let materials = gpu_material_data(structure);
-    let masks = gpu_mask_data(structure);
-    GpuShipPhysicsAssets {
-        positions: buffers.add(ShaderBuffer::from(positions)),
-        materials: buffers.add(ShaderBuffer::from(materials)),
-        masks: buffers.add(ShaderBuffer::from(masks)),
-        forces: buffers.add(ShaderBuffer::from(vec![[0.0; 4]; count])),
-        settings: buffers.add(ShaderBuffer::from(gpu_settings(
-            structure,
-            50,
-            5,
-            1.0 / 60.0,
-            0.0,
-            400.0,
-            9.81,
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            40.0,
-            25.0,
-            1.0,
-            60.0,
-            0.0,
-            1.0,
-            0.915,
-        ))),
-        water: buffers.add(ShaderBuffer::from(vec![[0.0; 4]; count * 3])),
-        water_outflow_1: buffers.add(ShaderBuffer::from(vec![[0.0; 4]; count])),
-        water_outflow_2: buffers.add(ShaderBuffer::from(vec![[0.0; 4]; count])),
-        width: structure.texel_width as u32,
-        height: structure.texel_height as u32,
-        iterations: 50,
-        water_steps: 5,
-    }
-}
-
-fn reset_gpu_ship_physics(
-    structure: &ShipStructure,
-    physics: &mut GpuShipPhysicsAssets,
-    buffers: &mut Assets<ShaderBuffer>,
-) {
-    let count = structure.texel_width * structure.texel_height;
-    let positions: Vec<[f32; 4]> = structure
-        .texel_rest_positions
-        .iter()
-        .map(|position| [position.x, position.y, 0.0, 0.0])
-        .collect();
-    let materials = gpu_material_data(structure);
-    let masks = gpu_mask_data(structure);
-    for (handle, data) in [
-        (&physics.positions, ShaderBuffer::from(positions)),
-        (&physics.materials, ShaderBuffer::from(materials)),
-        (&physics.masks, ShaderBuffer::from(masks)),
-        (&physics.forces, ShaderBuffer::from(vec![[0.0; 4]; count])),
-        (
-            &physics.water,
-            ShaderBuffer::from(vec![[0.0; 4]; count * 3]),
-        ),
-        (
-            &physics.water_outflow_1,
-            ShaderBuffer::from(vec![[0.0; 4]; count]),
-        ),
-        (
-            &physics.water_outflow_2,
-            ShaderBuffer::from(vec![[0.0; 4]; count]),
-        ),
-        (
-            &physics.settings,
-            ShaderBuffer::from(gpu_settings(
-                structure,
-                physics.iterations,
-                physics.water_steps,
-                1.0 / 60.0,
-                0.0,
-                400.0,
-                9.81,
-                1.0,
-                1.0,
-                1.0,
-                1.0,
-                1.0,
-                40.0,
-                25.0,
-                1.0,
-                60.0,
-                0.0,
-                1.0,
-                0.915,
-            )),
-        ),
-    ] {
-        if let Some(mut buffer) = buffers.get_mut(handle) {
-            *buffer = data;
-        }
-    }
-    physics.width = structure.texel_width as u32;
-    physics.height = structure.texel_height as u32;
-}
-
-fn gpu_material_data(structure: &ShipStructure) -> Vec<[f32; 4]> {
-    structure
-        .texel_materials
-        .iter()
-        .map(|material| {
-            material.map_or([0.0; 4], |material| {
-                let weighted_mass = if material.hull || material.ground {
-                    material.mass * 0.1 + 1025.0 * 80.0
-                } else {
-                    material.mass * 0.1 + 1.225 * 0.9
-                };
-                [
-                    weighted_mass,
-                    material.tensile_strength,
-                    material.compressive_strength,
-                    material.mass,
-                ]
-            })
-        })
-        .collect()
-}
-
-fn gpu_mask_data(structure: &ShipStructure) -> Vec<[u32; 4]> {
-    let solid: Vec<bool> = structure
-        .texel_solid
-        .iter()
-        .enumerate()
-        .map(|(index, &is_solid)| {
-            let x = index % structure.texel_width;
-            let y = index / structure.texel_width;
-            let proxy = (y / PHYSICS_NODE_PIXELS) * structure.width + x / PHYSICS_NODE_PIXELS;
-            is_solid && !structure.breached[proxy]
-        })
-        .collect();
-    let water_solid: Vec<bool> = structure
-        .texel_materials
-        .iter()
-        .zip(&solid)
-        .map(|(material, &is_solid)| is_solid && material.is_some_and(|material| !material.rope))
-        .collect();
-    let struts = build_strut_masks(&solid, structure.texel_width, structure.texel_height);
-    let water_struts =
-        build_strut_masks(&water_solid, structure.texel_width, structure.texel_height);
-    structure
-        .texel_materials
-        .iter()
-        .zip(struts)
-        .zip(water_struts)
-        .zip(solid)
-        .map(|(((material, struts), water_struts), is_solid)| {
-            let flags = if is_solid {
-                material.map_or(0, |material| {
-                    8 | (u32::from(material.ground) << 2)
-                        | (u32::from(material.hull) << 1)
-                        | u32::from(material.rope)
-                })
-            } else {
-                0
-            };
-            [flags, u32::from(struts), u32::from(water_struts), 0]
-        })
-        .collect()
-}
-
-#[allow(clippy::too_many_arguments)]
-fn gpu_settings(
-    structure: &ShipStructure,
-    iterations: u32,
-    water_steps: u32,
-    frame_delta: f32,
-    elapsed: f32,
-    sea_depth: f32,
-    gravity: f32,
-    rigidity: f32,
-    damping: f32,
-    strength: f32,
-    drag: f32,
-    buoyancy: f32,
-    wave_width: f32,
-    wave_height: f32,
-    water_inflow: f32,
-    water_flow: f32,
-    water_funk: f32,
-    water_weight: f32,
-    thickness: f32,
-) -> Vec<[f32; 4]> {
-    let steps = iterations.max(1);
-    let water_steps = water_steps.max(1);
-    vec![
-        [
-            structure.texel_width as f32,
-            structure.texel_height as f32,
-            steps as f32,
-            frame_delta,
-        ],
-        [gravity, rigidity, damping, strength],
-        [drag, buoyancy, wave_width, wave_height],
-        [
-            elapsed,
-            -sea_depth - 16.0,
-            frame_delta / water_steps as f32,
-            water_inflow,
-        ],
-        [water_flow, water_funk, water_weight, thickness],
-    ]
-}
 fn main() {
     let ship_catalog = ShipCatalog::discover();
     let initial_structure = ShipStructure::load_for_choice(&ship_catalog.0[0]);
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Sinking Simulator — Bevy port".into(),
-                resolution: (2554, 1378).into(),
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(
+            DefaultPlugins
+                .set(bevy::asset::AssetPlugin {
+                    file_path: std::env::current_dir()
+                        .expect("working directory")
+                        .join("assets")
+                        .to_string_lossy()
+                        .into_owned(),
+                    ..default()
+                })
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Sinking Simulator — Bevy port".into(),
+                        present_mode: bevy::window::PresentMode::AutoNoVsync,
+                        resolution: (2554, 1378).into(),
+                        ..default()
+                    }),
+                    ..default()
+                }),
+        )
         .add_plugins((
             Material2dPlugin::<InternalWaterMaterial>::default(),
+            Material2dPlugin::<tools::brush_preview::BrushMaterial>::default(),
+            Material2dPlugin::<ShipMaterial>::default(),
+            Material2dPlugin::<sky::SkyMaterial>::default(),
             Material2dPlugin::<ReflectionMaterial>::default(),
             Material2dPlugin::<OceanSurfaceMaterial>::default(),
+            Material2dPlugin::<sea::SeaMaterial>::default(),
             Material2dPlugin::<OceanDepthMaterial>::default(),
             Material2dPlugin::<UnderwaterEffectMaterial>::default(),
             GpuShipPhysicsPlugin,
+            resource::ResourcePlugin,
+            render_fbo::RenderFboPlugin,
         ))
         .insert_resource(ClearColor(Color::srgb(0.40, 0.68, 0.82)))
         .init_resource::<Simulation>()
+        .init_resource::<time_sync::TimeSync>()
+        .add_systems(Startup, time_sync::register_lifecycle)
+        .add_systems(Last, time_sync::sync_frame)
+        .insert_resource(music_player::MusicPlayer::discover())
+        .init_resource::<CameraControlState>()
+        .init_resource::<tools::move_tool::MoveDragState>()
         .insert_resource(ship_catalog)
         .insert_resource(initial_structure)
-        .add_systems(Startup, setup)
+        .add_systems(Startup, (setup, floor::setup, sky::setup))
+        .add_systems(Startup, sea::setup.after(setup))
+        .add_systems(
+            PostUpdate,
+            sea::sync
+                .before(bevy::camera::CameraUpdateSystems)
+                .before(bevy::transform::TransformSystems::Propagate),
+        )
         .add_systems(
             Update,
-            sync_music_playback.after(select_toolbox_tab_and_settings),
+            music_player::sync.after(select_toolbox_tab_and_settings),
         )
         .add_systems(
             Update,
             (update_gpu_physics_settings, apply_gpu_physics_readback)
                 .chain()
-                .after(handle_ship_tool),
+                .after(tools::tool::handle_ship_tool),
         )
         .add_systems(
             Update,
             (
                 (
                     handle_controls,
-                    handle_camera_zoom,
+                    handle_camera_control,
                     select_toolbox_tab_and_settings,
                     select_ship_from_panel,
+                    select_ship_layer,
                     import_dropped_ship,
                     load_selected_ship,
                 )
                     .chain(),
                 (
                     select_tool_from_panel,
-                    handle_ship_move,
-                    update_damage_brush_preview,
-                    handle_ship_tool,
+                    tools::move_tool::handle_ship_move,
+                    tools::brush_preview::update_damage_brush_preview,
+                    tools::tool::handle_ship_tool,
                     animate_water,
                     animate_sea_depth,
-                    animate_sky,
+                    sky::animate_sky.after(handle_camera_control),
                     sync_deformed_mesh.after(apply_gpu_physics_readback),
                     sync_internal_water_mesh,
                     animate_ship,
+                    ship_struts::sync_ship_struts,
                     animate_reflection,
                     animate_leaks,
                     sync_toolbox_visibility,
@@ -621,12 +257,19 @@ fn main() {
                     sync_ship_cards,
                     sync_tool_panel_visibility,
                     sync_settings_ui,
+                    update_ship_layer_label,
                     update_hud,
                 )
                     .chain(),
             )
                 .chain(),
         )
+        .add_systems(
+            Update,
+            fragment_shaders::update_ship_lighting.after(sync_ship_assets),
+        )
+        .add_systems(Update, floor::update.after(handle_camera_control))
+        .add_systems(Update, music_player::handle_seek.before(music_player::sync))
         .run();
 }
 
@@ -637,6 +280,7 @@ struct Simulation {
     paused: bool,
     tool: Tool,
     ship_index: usize,
+    selected_layer: usize,
     ship_scroll: usize,
     ship_search: String,
     ship_search_active: bool,
@@ -657,9 +301,9 @@ struct Simulation {
     thickness: f32,
     water_darkness: f32,
     sea_color: Vec3,
+    sea_alpha: f32,
     sea_hue: f32,
     cycle_length: f32,
-    cycle_phase: f32,
     day: f32,
     cycle_enabled: bool,
     show_tools: bool,
@@ -667,7 +311,6 @@ struct Simulation {
     physics_iterations: f32,
     water_steps: f32,
     tool_size: f32,
-    music_index: usize,
     music_playing: bool,
     music_volume: f32,
     show_internal_water: bool,
@@ -725,6 +368,24 @@ struct MaterialProperties {
     hull: bool,
     ground: bool,
     rope: bool,
+    invisible: bool,
+}
+
+impl From<&materials::Material> for MaterialProperties {
+    fn from(material: &materials::Material) -> Self {
+        Self {
+            strength: material.strength,
+            tensile_strength: material.tensile_strength.unwrap_or(material.strength),
+            compressive_strength: material
+                .compressive_strength
+                .unwrap_or(material.strength * 4.0),
+            mass: material.mass,
+            hull: material.is_hull,
+            ground: material.is_ground,
+            rope: material.is_rope,
+            invisible: material.invisible,
+        }
+    }
 }
 
 #[derive(Default)]
@@ -737,6 +398,7 @@ struct MaterialSampleAccumulator {
     hull_samples: usize,
     ground_samples: usize,
     rope_samples: usize,
+    invisible_samples: usize,
 }
 
 impl MaterialSampleAccumulator {
@@ -749,6 +411,7 @@ impl MaterialSampleAccumulator {
         self.hull_samples += usize::from(material.hull);
         self.ground_samples += usize::from(material.ground);
         self.rope_samples += usize::from(material.rope);
+        self.invisible_samples += usize::from(material.invisible);
     }
 
     fn into_properties(self) -> Option<MaterialProperties> {
@@ -760,6 +423,7 @@ impl MaterialSampleAccumulator {
             hull: self.hull_samples * 2 > self.samples,
             ground: self.ground_samples * 2 > self.samples,
             rope: self.rope_samples * 2 > self.samples,
+            invisible: self.invisible_samples * 2 > self.samples,
         })
     }
 }
@@ -973,35 +637,6 @@ fn is_exposed_node(solid: &[bool], width: usize, height: usize, index: usize) ->
     })
 }
 
-fn build_strut_masks(solid: &[bool], width: usize, height: usize) -> Vec<u8> {
-    if width == 0 || height == 0 || solid.len() != width * height {
-        return vec![0; solid.len()];
-    }
-    const FORWARD_DIRECTIONS: [(isize, isize); 4] = [(1, 0), (1, 1), (0, 1), (-1, 1)];
-    let mut masks = vec![0u8; solid.len()];
-    for y in 0..height {
-        for x in 0..width {
-            let a = y * width + x;
-            if !solid[a] {
-                continue;
-            }
-            for (direction, (dx, dy)) in FORWARD_DIRECTIONS.iter().copied().enumerate() {
-                let nx = x as isize + dx;
-                let ny = y as isize + dy;
-                if nx < 0 || ny < 0 || nx >= width as isize || ny >= height as isize {
-                    continue;
-                }
-                let b = ny as usize * width + nx as usize;
-                if solid[b] {
-                    masks[a] |= 1 << direction;
-                    masks[b] |= 1 << (direction + 4);
-                }
-            }
-        }
-    }
-    masks
-}
-
 fn normalized_node_mass(material: Option<MaterialProperties>) -> f32 {
     material
         .map(|material| (material.mass / 2409.0).clamp(0.25, 1000.0))
@@ -1051,6 +686,30 @@ fn spring_force(
     direction * (extension * stiffness) + relative_velocity * damping_force
 }
 
+// Original ShipPhysics force shader: frame/substep scaling, effective mass and rope softness.
+fn source_cpu_spring_force(
+    delta_position: Vec2,
+    relative_velocity: Vec2,
+    rest_length: f32,
+    mass_a: f32,
+    mass_b: f32,
+    rigidity: f32,
+    damping: f32,
+    rope: bool,
+    iterations: usize,
+    frame_delta: f32,
+) -> (Vec2, f32) {
+    let b = 0.03 * source_spring_break_scale(iterations, frame_delta);
+    let stiffness = 750.0 * mass_a.min(mass_b) * b * rigidity;
+    let elastic_load =
+        (delta_position.length() - rest_length) * stiffness * if rope { 0.001 } else { 1.0 };
+    let force = if delta_position != Vec2::ZERO {
+        delta_position.normalize() * elastic_load + b * damping * relative_velocity
+    } else {
+        Vec2::ZERO
+    };
+    (force, elastic_load)
+}
 fn should_break_spring(
     spring_force: f32,
     tensile_strength: f32,
@@ -1077,55 +736,16 @@ fn restore_spring(spring: &mut Spring, strut_masks: &mut [u8]) {
     strut_masks[spring.b] |= 1 << ((spring.direction + 4) % 8);
 }
 
-fn parse_material_palette(
-    json: &str,
-) -> Result<HashMap<u32, MaterialProperties>, serde_json::Error> {
-    let definitions = serde_json::from_str::<Vec<serde_json::Value>>(json)?;
-    let mut palette = HashMap::new();
-    for material in definitions {
-        let strength = material
-            .get("strength")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(1.0) as f32;
-        let tensile_strength = material
-            .get("tensileStrength")
-            .and_then(|v| v.as_f64())
-            .unwrap_or(strength as f64) as f32;
-        let properties = MaterialProperties {
-            strength,
-            tensile_strength,
-            compressive_strength: material
-                .get("compressiveStrength")
-                .and_then(|v| v.as_f64())
-                .unwrap_or((strength * 4.0) as f64) as f32,
-            mass: material.get("mass").and_then(|v| v.as_f64()).unwrap_or(1.0) as f32,
-            hull: material
-                .get("isHull")
-                .and_then(serde_json::Value::as_bool)
-                .unwrap_or(false),
-            ground: material
-                .get("isGround")
-                .and_then(serde_json::Value::as_bool)
-                .unwrap_or(false),
-            rope: material
-                .get("isRope")
-                .and_then(serde_json::Value::as_bool)
-                .unwrap_or(false),
-        };
-        let colors = material
-            .get("colours")
-            .and_then(|value| value.as_array())
-            .into_iter()
-            .flatten()
-            .filter_map(|value| value.as_str())
-            .chain(material.get("colour").and_then(|value| value.as_str()));
-        for color in colors {
-            if let Ok(rgb) = u32::from_str_radix(color.trim_start_matches('#'), 16) {
-                palette.insert(rgb, properties);
-            }
-        }
-    }
-    Ok(palette)
+fn parse_material_palette(json: &str) -> Result<HashMap<u32, MaterialProperties>, String> {
+    let materials = materials::Materials::from_json(json)?;
+    Ok(materials
+        .materials
+        .into_iter()
+        .map(|(rgb, material)| {
+            let properties = MaterialProperties::from(&material);
+            (rgb, properties)
+        })
+        .collect())
 }
 
 fn find_connected_white_background(image: &image::RgbaImage) -> Vec<bool> {
@@ -1193,7 +813,7 @@ impl ShipStructure {
 
     fn load_for_choice(choice: &ShipChoice) -> Self {
         let image_path = format!("assets/{}", choice.physics_asset);
-        let Ok(image) = image::open(image_path) else {
+        let Ok(image) = image::open(&image_path) else {
             return Self::empty_fallback();
         };
         let image = image.to_rgba8();
@@ -1212,19 +832,28 @@ impl ShipStructure {
         } else {
             find_connected_white_background(&image)
         };
-        let palette = match std::fs::read_to_string("assets/config/materials.json") {
-            Ok(json) => match parse_material_palette(&json) {
-                Ok(palette) => palette,
-                Err(error) => {
-                    bevy::log::error!("Could not parse assets/config/materials.json: {error}");
-                    HashMap::new()
-                }
-            },
+        let global_materials = match std::fs::read_to_string("assets/config/materials.json") {
+            Ok(json) => materials::Materials::from_json(&json).unwrap_or_else(|error| {
+                bevy::log::error!("Could not parse global material palette: {error}");
+                materials::Materials::default()
+            }),
             Err(error) => {
-                bevy::log::error!("Could not read assets/config/materials.json: {error}");
-                HashMap::new()
+                bevy::log::error!("Could not read global material palette: {error}");
+                materials::Materials::default()
             }
         };
+        let palette = if choice.material_map {
+            ship_thumbnail::ShipThumbnail::from_base_file(std::path::Path::new(&image_path))
+                .map(|thumbnail| thumbnail.materials(&global_materials))
+                .unwrap_or_else(|_| global_materials.clone())
+        } else {
+            global_materials
+        };
+        // ShipData uses the original BASE pixels, including invisible materials
+        // and RGB values with zero alpha. Visibility filtering applies solely
+        // to BaseDerivedTextureShipResource, never to the physics material map.
+        let source_data = ship_data::ShipData::new(image, palette);
+        let image = &source_data.img;
         let mut solid = vec![false; width * height];
         let mut cell_materials = vec![None; width * height];
         let mut texel_solid = vec![false; source_width * source_height];
@@ -1232,23 +861,26 @@ impl ShipStructure {
         for source_y in 0..source_height {
             for source_x in 0..source_width {
                 let pixel = image.get_pixel(source_x as u32, source_y as u32).0;
-                if pixel[3] <= 8 {
+                if !choice.material_map && pixel[3] <= 8 {
                     continue;
                 }
-                let rgb =
-                    (u32::from(pixel[0]) << 16) | (u32::from(pixel[1]) << 8) | u32::from(pixel[2]);
-                let material = palette.get(&rgb).copied().or_else(|| {
-                    (!choice.material_map && !white_background[source_y * source_width + source_x])
-                        .then_some(MaterialProperties {
-                            strength: 65.0,
-                            tensile_strength: 65.0,
-                            compressive_strength: 405.0,
-                            mass: 2409.0,
-                            hull: true,
-                            ground: false,
-                            rope: false,
-                        })
-                });
+                let material = source_data
+                    .material_at(source_x as u32, source_y as u32)
+                    .map(MaterialProperties::from)
+                    .or_else(|| {
+                        (!choice.material_map
+                            && !white_background[source_y * source_width + source_x])
+                            .then_some(MaterialProperties {
+                                strength: 65.0,
+                                tensile_strength: 65.0,
+                                compressive_strength: 405.0,
+                                mass: 2409.0,
+                                hull: true,
+                                ground: false,
+                                rope: false,
+                                invisible: false,
+                            })
+                    });
                 if let Some(material) = material {
                     let index = source_y * source_width + source_x;
                     texel_solid[index] = true;
@@ -1279,16 +911,8 @@ impl ShipStructure {
         let interior = classify_interior_air(&solid, width, height);
         let strut_masks = build_strut_masks(&solid, width, height);
         let texel_strut_masks = build_strut_masks(&texel_solid, source_width, source_height);
-        let texel_rest_positions: Vec<Vec2> = (0..source_width * source_height)
-            .map(|index| {
-                let x = index % source_width;
-                let y = index / source_width;
-                Vec2::new(
-                    x as f32 + 0.5 - source_width as f32 * 0.5,
-                    source_height as f32 * 0.5 - y as f32 - 0.5,
-                )
-            })
-            .collect();
+        let texel_rest_positions =
+            pos_vel_data::PosVelDataHolder::new(source_width, source_height).positions;
         let count = width * height;
         let rest_positions: Vec<Vec2> = (0..count)
             .map(|i| {
@@ -1329,6 +953,7 @@ impl ShipStructure {
                             hull: false,
                             ground: false,
                             rope: false,
+                            invisible: false,
                         };
                         let material_a = cell_materials[a].unwrap_or(fallback);
                         let material_b = cell_materials[b].unwrap_or(material_a);
@@ -1372,7 +997,7 @@ impl ShipStructure {
             springs,
             water: vec![0.0; count],
             flooding: 0.0,
-            motion_position: Vec2::new(0.0, SEA_LEVEL + 16.0),
+            motion_position: Vec2::new(0.0, SEA_LEVEL),
             motion_velocity: Vec2::ZERO,
             manual_offset: Vec2::ZERO,
             angle: 0.0,
@@ -1404,7 +1029,7 @@ impl ShipStructure {
             springs: Vec::new(),
             water: vec![0.0],
             flooding: 0.0,
-            motion_position: Vec2::new(0.0, SEA_LEVEL + 16.0),
+            motion_position: Vec2::new(0.0, SEA_LEVEL),
             motion_velocity: Vec2::ZERO,
             manual_offset: Vec2::ZERO,
             angle: 0.0,
@@ -1581,10 +1206,11 @@ impl Default for Simulation {
             elapsed: 0.0,
             flooding: 0.0,
             paused: false,
-            tool: Tool::Damage,
+            tool: Tool::Break,
             // The only ship with a complete source material map and soft-body
             // setup in this port is Titanic, so start on the matching asset.
             ship_index: 0,
+            selected_layer: 0,
             ship_scroll: 0,
             ship_search: String::new(),
             ship_search_active: false,
@@ -1604,18 +1230,19 @@ impl Default for Simulation {
             water_weight: 1.0,
             thickness: 0.085,
             water_darkness: 1.0,
-            sea_color: Vec3::new(0.02, 0.36, 0.76),
-            sea_hue: rgb_to_hue(Vec3::new(0.02, 0.36, 0.76)),
+            sea_color: Vec3::new(0.0, 71.0 / 255.0, 159.0 / 255.0),
+            sea_alpha: game_parameters::GameParameterProvider::default()
+                .water_color
+                .w,
+            sea_hue: rgb_to_hue(Vec3::new(0.0, 71.0 / 255.0, 159.0 / 255.0)),
             cycle_length: 120.0,
-            cycle_phase: 1.249,
-            day: 0.658,
+            day: 1.0,
             cycle_enabled: true,
             show_tools: true,
             toolbox_collapsed: false,
             physics_iterations: 50.0,
             water_steps: 5.0,
             tool_size: DEFAULT_TOOL_SIZE,
-            music_index: 7,
             music_playing: true,
             music_volume: 0.25,
             show_internal_water: true,
@@ -1625,6 +1252,9 @@ impl Default for Simulation {
 }
 
 impl Simulation {
+    fn water_color(&self) -> Vec4 {
+        self.sea_color.extend(self.sea_alpha)
+    }
     fn setting(&self, index: usize) -> f32 {
         match index {
             0 => self.wave_width,
@@ -1646,11 +1276,12 @@ impl Simulation {
             16 => self.physics_iterations,
             17 => self.water_steps,
             18 => self.day,
-            19 => self.tool_size / 10.0,
+            19 => self.tool_size,
             20 => self.music_volume,
             21 => self.sea_color.x,
             22 => self.sea_color.y,
             23 => self.sea_color.z,
+            24 => self.sea_alpha,
             _ => 0.0,
         }
     }
@@ -1676,12 +1307,10 @@ impl Simulation {
             17 => &mut self.water_steps,
             18 => {
                 self.day = (self.day + delta).clamp(0.0, 1.0);
-                self.cycle_phase = (2.0 * self.day - 1.0).acos()
-                    - std::f32::consts::TAU * self.elapsed / self.cycle_length.max(1.0);
                 return;
             }
             19 => {
-                self.tool_size = (self.tool_size + delta).clamp(2.0, 40.0);
+                self.tool_size = (self.tool_size + delta * 0.1).clamp(0.1, 4.0);
                 return;
             }
             20 => {
@@ -1690,14 +1319,30 @@ impl Simulation {
             }
             21 => {
                 self.sea_color.x = (self.sea_color.x + delta).clamp(0.0, 1.0);
+                let (hue, saturation, _) = rgb_to_hsv(self.sea_color);
+                if saturation > 0.0 {
+                    self.sea_hue = hue;
+                }
                 return;
             }
             22 => {
                 self.sea_color.y = (self.sea_color.y + delta).clamp(0.0, 1.0);
+                let (hue, saturation, _) = rgb_to_hsv(self.sea_color);
+                if saturation > 0.0 {
+                    self.sea_hue = hue;
+                }
                 return;
             }
             23 => {
                 self.sea_color.z = (self.sea_color.z + delta).clamp(0.0, 1.0);
+                let (hue, saturation, _) = rgb_to_hsv(self.sea_color);
+                if saturation > 0.0 {
+                    self.sea_hue = hue;
+                }
+                return;
+            }
+            24 => {
+                self.sea_alpha = (self.sea_alpha + delta).clamp(0.0, 1.0);
                 return;
             }
             _ => return,
@@ -1710,15 +1355,6 @@ impl Simulation {
             0.0
         });
     }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Tool {
-    Damage,
-    Repair,
-    Flood,
-    Pump,
-    Move,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -1738,7 +1374,8 @@ enum SettingAction {
     ToggleTools,
     ToggleWater,
     ToggleMusic,
-    PreviousTrack,
+    ToggleShuffle,
+    ToggleRepeat,
     NextTrack,
 }
 
@@ -1756,8 +1393,14 @@ struct ShipChoice {
     scale: f32,
 }
 
+#[derive(Clone)]
+struct ShipLayerChoice {
+    name: ShipLayer,
+    asset: String,
+}
+
 #[derive(Resource)]
-struct ShipCatalog(Vec<ShipChoice>);
+struct ShipCatalog(Vec<ShipChoice>, Vec<Vec<ShipLayerChoice>>);
 
 impl ShipCatalog {
     fn discover() -> Self {
@@ -1791,6 +1434,11 @@ impl ShipCatalog {
                 false,
             ),
         ] {
+            // Earlier prototype names may not exist in the extracted asset set.
+            // Never add a selectable ship whose appearance or BASE is missing.
+            if !Path::new(asset).is_file() || !Path::new(physics_asset).is_file() {
+                continue;
+            }
             push_ship_choice(
                 &mut choices,
                 Path::new(asset),
@@ -1856,13 +1504,41 @@ impl ShipCatalog {
             }
         }
         collect_material_maps(root, root, &mut choices);
+
+        // ShipResource.fromFile in the original game groups *_BASE, *_TEXTURE,
+        // *_INLIGHTS and *_EXLIGHTS files by ship and optional Layer.
+        let mut source_resources = HashMap::new();
+        collect_source_ship_resources(Path::new("assets/source_ships"), &mut source_resources);
+        for resources in source_resources.values() {
+            let Ok(thumbnail) = ship_thumbnail::ShipThumbnail::new(resources.clone()) else {
+                continue;
+            };
+            let Some(ship_thumbnail::ThumbnailResource::File(base)) =
+                thumbnail.get_resource(ShipResourceType::Base, &ShipLayer::default())
+            else {
+                continue;
+            };
+            let appearance =
+                match thumbnail.get_resource(ShipResourceType::Texture, &ShipLayer::default()) {
+                    Some(ship_thumbnail::ThumbnailResource::File(resource)) => &resource.path,
+                    _ => &base.path,
+                };
+            push_ship_choice(
+                &mut choices,
+                appearance,
+                &base.path,
+                thumbnail.name().unwrap_or(&base.ship).replace('_', " "),
+                true,
+            );
+        }
+
         choices.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
         choices.dedup_by(|a, b| a.asset == b.asset && a.physics_asset == b.physics_asset);
-        if let Some(titanic) = choices
+        if let Some(initial_ship) = choices
             .iter()
-            .position(|choice| choice.name == "RMS Titanic")
+            .position(|choice| choice.physics_asset.contains("/pacmaster/"))
         {
-            choices.swap(0, titanic);
+            choices.swap(0, initial_ship);
         }
         if choices.is_empty() {
             let fallback = PathBuf::from("assets/ships/Titanic.png");
@@ -1874,7 +1550,62 @@ impl ShipCatalog {
                 false,
             );
         }
-        Self(choices)
+
+        let mut layers: Vec<Vec<ShipLayerChoice>> = choices
+            .iter()
+            .map(|choice| {
+                vec![ShipLayerChoice {
+                    name: ShipLayer::default(),
+                    asset: choice.asset.clone(),
+                }]
+            })
+            .collect();
+        for (index, choice) in choices.iter().enumerate() {
+            let key = normalized_ship_key(&choice.name);
+            for resources in source_resources.values() {
+                for resource in resources {
+                    if normalized_ship_key(&resource.ship) != key
+                        || resource.resource_type != ShipResourceType::Texture
+                        || !resource.resource_type.is_layered()
+                        || resource.layer.is_default()
+                    {
+                        continue;
+                    }
+                    let layer_assets = &mut layers[index];
+                    if layer_assets
+                        .iter()
+                        .any(|existing| existing.name == resource.layer)
+                    {
+                        continue;
+                    }
+                    layer_assets.push(ShipLayerChoice {
+                        name: resource.layer.clone(),
+                        asset: asset_path(&resource.path),
+                    });
+                }
+            }
+            layers[index][1..].sort_by(|a, b| {
+                a.name
+                    .name()
+                    .to_ascii_lowercase()
+                    .cmp(&b.name.name().to_ascii_lowercase())
+            });
+        }
+        Self(choices, layers)
+    }
+
+    fn layer_asset(&self, ship_index: usize, layer_index: usize) -> Option<&str> {
+        self.1
+            .get(ship_index)
+            .and_then(|layers| layers.get(layer_index).or_else(|| layers.first()))
+            .map(|layer| layer.asset.as_str())
+    }
+
+    fn layer_name(&self, ship_index: usize, layer_index: usize) -> Option<&str> {
+        self.1
+            .get(ship_index)
+            .and_then(|layers| layers.get(layer_index).or_else(|| layers.first()))
+            .map(|layer| layer.name.name())
     }
 
     fn add_imported(&mut self, choice: ShipChoice) -> usize {
@@ -1885,8 +1616,54 @@ impl ShipCatalog {
         {
             return index;
         }
+        let default_layer = ShipLayerChoice {
+            name: ShipLayer::default(),
+            asset: choice.asset.clone(),
+        };
         self.0.push(choice);
+        self.1.push(vec![default_layer]);
         self.0.len() - 1
+    }
+}
+
+fn normalized_ship_key(name: &str) -> String {
+    name.chars()
+        .filter(|character| character.is_alphanumeric())
+        .flat_map(char::to_lowercase)
+        .collect()
+}
+
+fn asset_path(path: &std::path::Path) -> String {
+    path.strip_prefix("assets")
+        .unwrap_or(path)
+        .to_string_lossy()
+        .replace('\\', "/")
+        .trim_start_matches('/')
+        .to_owned()
+}
+
+fn collect_source_ship_resources(
+    folder: &std::path::Path,
+    resources: &mut HashMap<String, Vec<ShipResourceFile>>,
+) {
+    let Ok(entries) = std::fs::read_dir(folder) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            if path.file_name().and_then(|name| name.to_str()) != Some("Structure Pack") {
+                collect_source_ship_resources(&path, resources);
+            }
+            continue;
+        }
+        let Ok(resource) = parse_resource_path(&path) else {
+            continue;
+        };
+        resources
+            .entry(resource.ship.clone())
+            .or_default()
+            .push(resource);
     }
 }
 
@@ -2057,7 +1834,7 @@ struct ShipSprite;
 struct WorldCamera;
 
 #[derive(Component)]
-struct ShipMesh(Handle<Mesh>, Handle<ColorMaterial>);
+struct ShipMesh(Handle<Mesh>, Handle<ShipMaterial>);
 
 #[derive(Component)]
 struct InternalWaterMesh {
@@ -2087,13 +1864,10 @@ impl Material2d for InternalWaterMaterial {
     }
 }
 #[derive(Component)]
-struct MusicPlayer(usize, f32);
-
-#[derive(Component)]
 struct MusicStatus;
 
 #[derive(Component)]
-struct MeshSyncState(Vec<bool>);
+struct MeshSyncState(Vec<bool>, Vec<[u32; 4]>);
 
 #[derive(Component)]
 struct ReflectionMesh {
@@ -2130,7 +1904,7 @@ struct Hud;
 struct LeakMarker(Vec2);
 
 #[derive(Component)]
-struct DamageBrushPreview(bool);
+struct DamageBrushPreview;
 
 #[derive(Component)]
 struct ShipCard(usize);
@@ -2149,6 +1923,9 @@ struct ToolGlyph;
 
 #[derive(Component)]
 struct ToolPanelUi;
+
+#[derive(Component)]
+struct ShipLayerLabel;
 
 #[derive(Component)]
 struct TabButton(ToolboxTab);
@@ -2172,7 +1949,13 @@ struct SettingReadout(SettingValue);
 struct ShipSearchText;
 
 #[derive(Component)]
-struct SeaColorPreview;
+struct SeaColorPreview(bool);
+
+#[derive(Component)]
+struct SeaAlphaPicker(Handle<Mesh>);
+
+#[derive(Component)]
+struct SeaAlphaSelector;
 
 #[derive(Component)]
 struct SeaColorPicker(Handle<Mesh>);
@@ -2182,9 +1965,6 @@ struct SeaColorSelector;
 
 #[derive(Component)]
 struct SeaColorReadout(usize);
-
-#[derive(Component)]
-struct SkyMesh(Handle<Mesh>);
 
 #[derive(Component)]
 struct ToolboxContent;
@@ -2198,10 +1978,13 @@ struct ToolboxTitle;
 fn setup(
     mut commands: Commands,
     assets: Res<AssetServer>,
+    mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut shader_buffers: ResMut<Assets<ShaderBuffer>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    mut ship_materials: ResMut<Assets<ShipMaterial>>,
     mut water_materials: ResMut<Assets<InternalWaterMaterial>>,
+    mut brush_materials: ResMut<Assets<tools::brush_preview::BrushMaterial>>,
     mut reflection_materials: ResMut<Assets<ReflectionMaterial>>,
     mut ocean_materials: ResMut<Assets<OceanSurfaceMaterial>>,
     mut depth_materials: ResMut<Assets<OceanDepthMaterial>>,
@@ -2216,8 +1999,11 @@ fn setup(
         .spawn(Readback::buffer(gpu_physics.positions))
         .observe(capture_gpu_ship_physics_readback);
     commands
-        .spawn(Readback::buffer(gpu_physics.water))
+        .spawn(Readback::buffer(gpu_physics.water.clone()))
         .observe(capture_gpu_water_readback);
+    commands
+        .spawn(Readback::buffer(gpu_physics.masks.clone()))
+        .observe(capture_gpu_mask_readback);
     let scaled_projection = Projection::Orthographic(OrthographicProjection {
         scaling_mode: ScalingMode::FixedVertical {
             viewport_height: 720.0,
@@ -2240,38 +2026,6 @@ fn setup(
         },
         scaled_projection,
         RenderLayers::layer(1),
-    ));
-
-    // Reuse the original soft, horizon-centered sky texture from the game JAR.
-    // sky.png is the original game's time-of-day color lookup strip, not a
-    // static backdrop. Sampling one animated U column reproduces its day cycle.
-    let mut sky_mesh = Mesh::new(
-        PrimitiveTopology::TriangleList,
-        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
-    );
-    sky_mesh.insert_attribute(
-        Mesh::ATTRIBUTE_POSITION,
-        vec![
-            [-640.0, 0.0, 0.0],
-            [640.0, 0.0, 0.0],
-            [640.0, 960.0, 0.0],
-            [-640.0, 960.0, 0.0],
-        ],
-    );
-    sky_mesh.insert_attribute(
-        Mesh::ATTRIBUTE_UV_0,
-        vec![[0.658, 0.5], [0.658, 0.5], [0.658, 0.0], [0.658, 0.0]],
-    );
-    sky_mesh.insert_indices(Indices::U32(vec![0, 1, 2, 0, 2, 3]));
-    let sky_handle = meshes.add(sky_mesh);
-    commands.spawn((
-        SkyMesh(sky_handle.clone()),
-        Mesh2d(sky_handle),
-        MeshMaterial2d(materials.add(ColorMaterial {
-            texture: Some(assets.load("config/sky.png")),
-            ..default()
-        })),
-        Transform::from_xyz(0.0, SEA_LEVEL, -10.0),
     ));
 
     // Layered sea bands retain the original blue depth gradient.
@@ -2330,7 +2084,7 @@ fn setup(
     ));
     let ocean_mesh = meshes.add(ocean_surface_mesh(
         WORLD_WIDTH,
-        (simulation.wave_amplitude * 25.0).max(1.0) + 2.0,
+        (simulation.wave_amplitude).max(1.0) + 2.0,
     ));
     let ocean_material = ocean_materials.add(OceanSurfaceMaterial {
         color: LinearRgba::new(
@@ -2342,7 +2096,7 @@ fn setup(
         params: Vec4::new(
             std::f32::consts::PI / simulation.wave_width.max(0.001),
             simulation.elapsed,
-            simulation.wave_amplitude * 25.0,
+            simulation.wave_amplitude,
             0.0,
         ),
     });
@@ -2351,7 +2105,7 @@ fn setup(
             mesh: ocean_mesh.clone(),
             material: ocean_material.clone(),
             width: WORLD_WIDTH,
-            height: simulation.wave_amplitude * 25.0 + 2.0,
+            height: simulation.wave_amplitude + 2.0,
         },
         Mesh2d(ocean_mesh),
         MeshMaterial2d(ocean_material),
@@ -2359,27 +2113,51 @@ fn setup(
     ));
 
     let initial_choice = &catalog.0[simulation.ship_index.min(catalog.0.len() - 1)];
-    let ship = assets.load(initial_choice.asset.clone());
+    let ship = load_ship_visual_asset(initial_choice, &initial_choice.asset, &assets, &mut images);
     commands.spawn((
         ShipSprite,
         Sprite::from_image(ship.clone()),
-        Transform::from_xyz(0.0, SEA_LEVEL + 16.0, 0.0).with_scale(Vec3::ONE),
+        Transform::from_xyz(0.0, SEA_LEVEL, 0.0).with_scale(Vec3::ONE),
         Visibility::Hidden,
     ));
     let mesh = build_deformable_ship_mesh(&structure);
     let mesh_handle = meshes.add(mesh);
-    let texture = assets.load(initial_choice.asset.clone());
-    let ship_material = materials.add(ColorMaterial {
-        texture: Some(texture),
-        ..default()
+    let texture = ship.clone();
+    let (internal_lights, external_lights) =
+        load_ship_light_assets(initial_choice, &ShipLayer::default(), &assets, &mut images);
+    let ship_material = ship_materials.add(ShipMaterial {
+        texture,
+        internal_lights,
+        external_lights,
+        params: Vec4::new(
+            simulation.day,
+            u8::from(simulation.show_internal_water) as f32,
+            structure.texel_width as f32,
+            structure.texel_height as f32,
+        ),
+        sea_color: simulation.water_color(),
+        water: gpu_physics.water.clone(),
+        masks: gpu_physics.masks.clone(),
     });
     commands.spawn((
         ShipMesh(mesh_handle.clone(), ship_material.clone()),
-        MeshSyncState(structure.breached.clone()),
+        MeshSyncState(structure.breached.clone(), gpu_mask_data(&structure)),
         Mesh2d(mesh_handle),
-        MeshMaterial2d(ship_material),
+        MeshMaterial2d(ship_material.clone()),
         Visibility::Inherited,
-        Transform::from_xyz(0.0, SEA_LEVEL + 16.0, 0.0),
+        Transform::from_xyz(0.0, SEA_LEVEL, 0.0),
+    ));
+    let strut_masks = gpu_mask_data(&structure);
+    let strut_mesh = meshes.add(ship_struts::build_mesh(&structure, &strut_masks));
+    commands.spawn((
+        ship_struts::ShipStruts {
+            mesh: strut_mesh.clone(),
+            dimensions: (structure.texel_width, structure.texel_height),
+            masks: strut_masks,
+        },
+        Mesh2d(strut_mesh),
+        MeshMaterial2d(ship_material),
+        Transform::from_xyz(0.0, SEA_LEVEL, -0.001),
     ));
     let (water_mesh_data, water_cells) = build_internal_water_mesh(&structure);
     let water_mesh = meshes.add(water_mesh_data);
@@ -2403,24 +2181,22 @@ fn setup(
         },
         Mesh2d(water_mesh),
         MeshMaterial2d(water_material),
-        Transform::from_xyz(0.0, SEA_LEVEL + 16.0, 0.5),
+        Transform::from_xyz(0.0, SEA_LEVEL, 0.5),
     ));
-    let brush_fill = meshes.add(Circle::new(1.0));
-    let brush_ring = meshes.add(Annulus::new(0.92, 1.0));
-    let fill_material = materials.add(ColorMaterial::from(Color::srgba(1.0, 0.08, 0.08, 0.19)));
-    let ring_material = materials.add(ColorMaterial::from(Color::srgba(1.0, 0.12, 0.12, 0.72)));
-    for (outline, mesh, material) in [
-        (false, brush_fill, fill_material),
-        (true, brush_ring, ring_material),
-    ] {
-        commands.spawn((
-            DamageBrushPreview(outline),
-            Mesh2d(mesh),
-            MeshMaterial2d(material),
-            Transform::from_xyz(0.0, 0.0, 8.0),
-            Visibility::Hidden,
-        ));
-    }
+    // Source shader extends the half-opacity disk by distance/10 at its edge.
+    // A 2.3-unit quad covers the complete falloff when scaled by tool radius.
+    let brush_mesh = meshes.add(Rectangle::new(2.3, 2.3));
+    let brush_material = brush_materials.add(tools::brush_preview::BrushMaterial {
+        cursor_radius: Vec4::new(0.0, 0.0, 1.0, 0.0),
+        color: Vec4::new(1.0, 0.0, 0.0, 1.0),
+    });
+    commands.spawn((
+        DamageBrushPreview,
+        Mesh2d(brush_mesh),
+        MeshMaterial2d(brush_material),
+        Transform::from_xyz(0.0, 0.0, 8.0),
+        Visibility::Hidden,
+    ));
     let reflection_mesh = meshes.add(reflection_mesh(&structure));
     let reflection_material = reflection_materials.add(ReflectionMaterial {
         texture: ship,
@@ -2428,7 +2204,7 @@ fn setup(
         params: Vec4::new(
             std::f32::consts::PI / simulation.wave_width.max(0.001),
             simulation.elapsed,
-            simulation.wave_amplitude * 25.0,
+            simulation.wave_amplitude,
             SEA_LEVEL,
         ),
     });
@@ -2684,21 +2460,49 @@ fn setup(
         RenderLayers::layer(1),
         Visibility::Hidden,
     ));
-    let alpha_bar = meshes.add(alpha_bar_mesh());
+    let alpha_bar = meshes.add(alpha_bar_mesh(simulation.sea_color));
     commands.spawn((
         TabPage(ToolboxTab::Graphics),
         ToolboxContent,
+        SeaAlphaPicker(alpha_bar.clone()),
         Mesh2d(alpha_bar),
         MeshMaterial2d(materials.add(ColorMaterial::default())),
         Transform::from_xyz(-412.0, -130.0, 25.4),
         RenderLayers::layer(1),
         Visibility::Hidden,
     ));
+    // Source AlphaPreviewHalf: opaque colour on the left, alpha over checks on the right.
+    for row in 0..8 {
+        for column in 0..4 {
+            let shade = if (row + column) % 2 == 0 { 0.72 } else { 0.46 };
+            commands.spawn((
+                TabPage(ToolboxTab::Graphics),
+                ToolboxContent,
+                Sprite::from_color(Color::srgb(shade, shade, shade), Vec2::splat(7.0)),
+                Transform::from_xyz(-336.5 + column as f32 * 7.0, -89.5 + row as f32 * 7.0, 25.3),
+                RenderLayers::layer(1),
+                Visibility::Hidden,
+            ));
+        }
+    }
+    for (alpha, x) in [(false, -354.0), (true, -326.0)] {
+        commands.spawn((
+            SeaColorPreview(alpha),
+            TabPage(ToolboxTab::Graphics),
+            ToolboxContent,
+            Sprite::from_color(Color::WHITE, Vec2::new(28.0, 56.0)),
+            Transform::from_xyz(x, -65.0, 25.5),
+            RenderLayers::layer(1),
+            Visibility::Hidden,
+        ));
+    }
     commands.spawn((
-        SeaColorPreview,
+        SeaColorSelector,
+        SeaAlphaSelector,
         TabPage(ToolboxTab::Graphics),
-        Sprite::from_color(Color::srgb(0.02, 0.36, 0.76), Vec2::new(56.0, 56.0)),
-        Transform::from_xyz(-340.0, -65.0, 25.5),
+        ToolboxContent,
+        Sprite::from_color(Color::WHITE, Vec2::new(18.0, 2.0)),
+        Transform::from_xyz(-412.0, toolbox::alpha_marker_y(simulation.sea_alpha), 26.0),
         RenderLayers::layer(1),
         Visibility::Hidden,
     ));
@@ -2753,24 +2557,7 @@ fn setup(
         Vec3::new(-465.0, 155.0, 25.0),
         15.0,
     );
-    spawn_setting_button(
-        &mut commands,
-        "|◀",
-        SettingAction::PreviousTrack,
-        Vec3::new(-545.0, 110.0, 25.0),
-    );
-    spawn_setting_button(
-        &mut commands,
-        "Ⅱ",
-        SettingAction::ToggleMusic,
-        Vec3::new(-505.0, 110.0, 25.0),
-    );
-    spawn_setting_button(
-        &mut commands,
-        "▶|",
-        SettingAction::NextTrack,
-        Vec3::new(-465.0, 110.0, 25.0),
-    );
+    music_player::spawn_controls(&mut commands, &assets);
     commands.spawn((
         Text2d::new("Loading soundtrack…"),
         TextFont {
@@ -2840,6 +2627,19 @@ fn setup(
     spawn_page_label(
         &mut commands,
         ToolboxTab::Advanced,
+        "Show flood water",
+        Vec3::new(-535.0, 20.0, 25.0),
+        12.0,
+    );
+    spawn_setting_button(
+        &mut commands,
+        "✓",
+        SettingAction::ToggleWater,
+        Vec3::new(-618.0, 20.0, 25.0),
+    );
+    spawn_page_label(
+        &mut commands,
+        ToolboxTab::Advanced,
         "Hole / tool size",
         Vec3::new(-530.0, 55.0, 25.0),
         12.0,
@@ -2872,8 +2672,8 @@ fn setup(
         RenderLayers::layer(1),
     ));
     for (index, (tool, icon)) in [
-        (Tool::Damage, "icons/Break.png"),
-        (Tool::Pump, "icons/Dry.png"),
+        (Tool::Break, "icons/Break.png"),
+        (Tool::Dry, "icons/Dry.png"),
         (Tool::Flood, "icons/Flood.png"),
         (Tool::Move, "icons/Move.png"),
     ]
@@ -2902,12 +2702,18 @@ fn setup(
         Transform::from_xyz(-145.0, 310.0, 21.0),
         RenderLayers::layer(1),
     ));
-    spawn_tool_panel_label(
-        &mut commands,
-        "Default",
-        Vec3::new(-145.0, 310.0, 22.0),
-        15.0,
-    );
+    commands.spawn((
+        ToolPanelUi,
+        ShipLayerLabel,
+        Text2d::new("Default"),
+        TextFont {
+            font_size: FontSize::Px(15.0),
+            ..default()
+        },
+        TextColor(Color::WHITE),
+        Transform::from_xyz(-145.0, 310.0, 22.0),
+        RenderLayers::layer(1),
+    ));
     spawn_tool_panel_label(
         &mut commands,
         "Show Layer",
@@ -2916,13 +2722,11 @@ fn setup(
     );
     commands.spawn((
         ToolPanelUi,
-        SettingButton(SettingAction::ToggleWater),
         Sprite::from_color(Color::srgb(0.24, 0.29, 0.43), Vec2::new(22.0, 24.0)),
-        Transform::from_xyz(85.0, 310.0, 21.0),
+        Transform::from_xyz(-40.0, 310.0, 21.0),
         RenderLayers::layer(1),
-        Visibility::Inherited,
     ));
-    spawn_tool_panel_label(&mut commands, "▼", Vec3::new(85.0, 310.0, 22.0), 14.0);
+    spawn_tool_panel_label(&mut commands, "▼", Vec3::new(-40.0, 310.0, 22.0), 14.0);
     commands.spawn((
         ToolPanelUi,
         SettingRow(19),
@@ -2969,61 +2773,58 @@ fn setup(
     ));
 }
 
+/// Combine current damage with GPU breakage. New tool holes must not restore
+/// links previously broken by stress, even when a readback is one frame old.
+fn current_render_masks(
+    structure: &ShipStructure,
+    snapshot: &GpuShipPhysicsSnapshot,
+) -> Vec<[u32; 4]> {
+    let mut masks = gpu_mask_data(structure);
+    if snapshot.masks.len() == masks.len() {
+        for (mask, live) in masks.iter_mut().zip(&snapshot.masks) {
+            mask[1] &= live[1];
+            mask[2] &= live[2];
+        }
+    }
+    masks
+}
+
 fn build_deformable_ship_mesh(structure: &ShipStructure) -> Mesh {
     structure.validate_texel_data();
     let width = structure.texel_width;
     let height = structure.texel_height;
-    let mut positions = Vec::<[f32; 3]>::new();
-    let mut uvs = Vec::<[f32; 2]>::new();
-    let mut colors = Vec::<[f32; 4]>::new();
-    let mut indices = Vec::<u32>::new();
-    for y in 0..=height {
-        for x in 0..=width {
-            positions.push([
-                -SHIP_HALF_WIDTH + x as f32 / width as f32 * SHIP_HALF_WIDTH * 2.0,
-                structure.half_height - y as f32 / height as f32 * structure.half_height * 2.0,
-                0.0,
-            ]);
-            // PNG image coordinates start at the top; mesh UVs in Bevy's
-            // mesh material use 0 at that same edge. The old inverted V put
-            // the red keel over the deck and pulled the white keyed area in.
-            uvs.push([x as f32 / width as f32, y as f32 / height as f32]);
-            colors.push([1.0, 1.0, 1.0, 1.0]);
-        }
-    }
-    let stride = width + 1;
-    for y in 0..height {
-        for x in 0..width {
-            let texel = y * width + x;
-            let physics_cell =
-                (y / PHYSICS_NODE_PIXELS) * structure.width + x / PHYSICS_NODE_PIXELS;
-            if !structure.texel_solid[texel] || structure.breached[physics_cell] {
-                continue;
-            }
-            let tl = (y * stride + x) as u32;
-            let tr = tl + 1;
-            let bl = ((y + 1) * stride + x) as u32;
-            let br = bl + 1;
-            indices.extend_from_slice(&[bl, br, tr, bl, tr, tl]);
-        }
-    }
+    let positions: Vec<[f32; 3]> = structure
+        .texel_positions
+        .iter()
+        .map(|p| [p.x, p.y, 0.0])
+        .collect();
+    let uvs: Vec<[f32; 2]> = (0..width * height)
+        .map(|i| {
+            [
+                (i % width) as f32 / width as f32 + 0.5 / width as f32,
+                (i / width) as f32 / height as f32 + 0.5 / height as f32,
+            ]
+        })
+        .collect();
+    let indices = ship::Ship::triangle_indices(width, height, &gpu_mask_data(structure));
     let mut mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
     );
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vec![[1.0; 4]; width * height]);
     mesh.insert_indices(Indices::U32(indices));
     mesh
 }
 
 fn sync_deformed_mesh(
     structure: Res<ShipStructure>,
-    simulation: Res<Simulation>,
+    snapshot: Res<GpuShipPhysicsSnapshot>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut ship_meshes: Query<(&ShipMesh, &mut MeshSyncState)>,
 ) {
+    let masks = current_render_masks(&structure, &snapshot);
     for (ship_mesh, mut sync_state) in &mut ship_meshes {
         let Some(mut mesh) = meshes.get_mut(&ship_mesh.0) else {
             continue;
@@ -3031,94 +2832,21 @@ fn sync_deformed_mesh(
         if let Some(VertexAttributeValues::Float32x3(vertices)) =
             mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION)
         {
-            let cell_w = SHIP_HALF_WIDTH * 2.0 / structure.texel_width as f32;
-            let cell_h = structure.half_height * 2.0 / structure.texel_height as f32;
-            let stride = structure.texel_width + 1;
-            for y in 0..=structure.texel_height {
-                for x in 0..=structure.texel_width {
-                    let mut displacement = Vec2::ZERO;
-                    let mut weights = 0.0;
-                    let min_x = x.saturating_sub(1);
-                    let max_x = x.min(structure.texel_width.saturating_sub(1));
-                    let min_y = y.saturating_sub(1);
-                    let max_y = y.min(structure.texel_height.saturating_sub(1));
-                    for ny in min_y..=max_y {
-                        for nx in min_x..=max_x {
-                            let i = ny * structure.texel_width + nx;
-                            if !structure.texel_solid[i] {
-                                continue;
-                            }
-                            let dx = nx as f32 + 0.5 - x as f32;
-                            let dy = ny as f32 + 0.5 - y as f32;
-                            let weight = 1.0 / (dx * dx + dy * dy + 0.25);
-                            displacement += (structure.texel_positions[i]
-                                - structure.texel_rest_positions[i])
-                                * weight;
-                            weights += weight;
-                        }
-                    }
-                    if weights > 0.0 {
-                        displacement /= weights;
-                    }
-                    let vertex = y * stride + x;
-                    vertices[vertex] = [
-                        -SHIP_HALF_WIDTH + x as f32 * cell_w + displacement.x,
-                        structure.half_height - y as f32 * cell_h + displacement.y,
-                        0.0,
-                    ];
-                }
+            // Source geometry fetches each texel's own position. Averaging
+            // neighboring displacement would keep severed pieces connected.
+            for (vertex, position) in vertices.iter_mut().zip(&structure.texel_positions) {
+                *vertex = [position.x, position.y, 0.0];
             }
         }
-        if let Some(VertexAttributeValues::Float32x4(colors)) =
-            mesh.attribute_mut(Mesh::ATTRIBUTE_COLOR)
-        {
-            let stride = structure.texel_width + 1;
-            for y in 0..=structure.texel_height {
-                for x in 0..=structure.texel_width {
-                    let mut wetness = 0.0f32;
-                    for ny in
-                        y.saturating_sub(1)..y.min(structure.texel_height.saturating_sub(1)) + 1
-                    {
-                        for nx in
-                            x.saturating_sub(1)..x.min(structure.texel_width.saturating_sub(1)) + 1
-                        {
-                            let proxy_index = (ny / PHYSICS_NODE_PIXELS) * structure.width
-                                + nx / PHYSICS_NODE_PIXELS;
-                            if structure.solid[proxy_index] {
-                                wetness = wetness.max(structure.water[proxy_index].min(1.0));
-                            }
-                        }
-                    }
-                    let tint = if simulation.show_internal_water {
-                        wetness * 0.7
-                    } else {
-                        0.0
-                    };
-                    colors[y * stride + x] = [1.0 - tint * 0.75, 1.0 - tint * 0.25, 1.0, 1.0];
-                }
-            }
+        if sync_state.1 != masks {
+            mesh.insert_indices(Indices::U32(ship::Ship::triangle_indices(
+                structure.texel_width,
+                structure.texel_height,
+                &masks,
+            )));
+            sync_state.1.clone_from(&masks);
         }
-        if sync_state.0 != structure.breached {
-            let mut indices = Vec::new();
-            let stride = structure.texel_width + 1;
-            for y in 0..structure.texel_height {
-                for x in 0..structure.texel_width {
-                    let texel = y * structure.texel_width + x;
-                    let physics_cell =
-                        (y / PHYSICS_NODE_PIXELS) * structure.width + x / PHYSICS_NODE_PIXELS;
-                    if !structure.texel_solid[texel] || structure.breached[physics_cell] {
-                        continue;
-                    }
-                    let tl = (y * stride + x) as u32;
-                    let tr = tl + 1;
-                    let bl = ((y + 1) * stride + x) as u32;
-                    let br = bl + 1;
-                    indices.extend_from_slice(&[bl, br, tr, bl, tr, tl]);
-                }
-            }
-            mesh.insert_indices(Indices::U32(indices));
-            sync_state.0.clone_from(&structure.breached);
-        }
+        sync_state.0.clone_from(&structure.breached);
     }
 }
 
@@ -3416,14 +3144,14 @@ fn spawn_setting_button(
         SettingAction::ToggleCycle | SettingAction::ToggleTools | SettingAction::ToggleWater
     );
     let page = match action {
-        SettingAction::ToggleCycle | SettingAction::ToggleTools | SettingAction::ToggleWater => {
-            ToolboxTab::Graphics
-        }
-        SettingAction::Adjust(14 | 15 | 18 | 21 | 22 | 23, _) => ToolboxTab::Graphics,
+        SettingAction::ToggleCycle | SettingAction::ToggleTools => ToolboxTab::Graphics,
+        SettingAction::ToggleWater => ToolboxTab::Advanced,
+        SettingAction::Adjust(14 | 15 | 18 | 21 | 22 | 23 | 24, _) => ToolboxTab::Graphics,
         SettingAction::Adjust(16 | 17, _) => ToolboxTab::Performance,
         SettingAction::Adjust(19, _) => ToolboxTab::Advanced,
         SettingAction::ToggleMusic
-        | SettingAction::PreviousTrack
+        | SettingAction::ToggleShuffle
+        | SettingAction::ToggleRepeat
         | SettingAction::NextTrack
         | SettingAction::Adjust(20, _) => ToolboxTab::Music,
         _ => ToolboxTab::Physics,
@@ -3466,7 +3194,7 @@ fn spawn_setting_button(
 
 fn spawn_setting_readout(commands: &mut Commands, value: SettingValue, position: Vec3) {
     let page = match value {
-        SettingValue::Number(14 | 15 | 18 | 21 | 22 | 23) => ToolboxTab::Graphics,
+        SettingValue::Number(14 | 15 | 18 | 21 | 22 | 23 | 24) => ToolboxTab::Graphics,
         SettingValue::Number(16 | 17) => ToolboxTab::Performance,
         SettingValue::Number(19) => ToolboxTab::Advanced,
         SettingValue::Number(20) => ToolboxTab::Music,
@@ -3489,51 +3217,12 @@ fn spawn_setting_readout(commands: &mut Commands, value: SettingValue, position:
     ));
 }
 
-fn sync_music_playback(
-    mut commands: Commands,
-    assets: Res<AssetServer>,
-    simulation: Res<Simulation>,
-    players: Query<(Entity, &MusicPlayer)>,
-    mut status: Query<&mut Text2d, With<MusicStatus>>,
-) {
-    let current = players.iter().next();
-    let should_play = simulation.music_playing;
-    let is_current = current.is_some_and(|(_, player)| {
-        player.0 == simulation.music_index && (player.1 - simulation.music_volume).abs() < 0.001
-    });
-    if should_play != current.is_some() || (should_play && !is_current) {
-        for (entity, _) in &players {
-            commands.entity(entity).despawn();
-        }
-        if should_play {
-            let track = simulation.music_index % MUSIC_TRACKS.len();
-            commands.spawn((
-                AudioPlayer::new(assets.load(MUSIC_TRACKS[track])),
-                PlaybackSettings::LOOP.with_volume(Volume::Linear(simulation.music_volume)),
-                MusicPlayer(track, simulation.music_volume),
-            ));
-        }
-    }
-    if let Ok(mut label) = status.single_mut() {
-        let track = MUSIC_TRACKS[simulation.music_index % MUSIC_TRACKS.len()]
-            .strip_prefix("music/")
-            .unwrap_or(MUSIC_TRACKS[simulation.music_index % MUSIC_TRACKS.len()])
-            .strip_suffix(".ogg")
-            .unwrap_or("Soundtrack");
-        label.0 = format!(
-            "{}  •  {}",
-            track,
-            if should_play { "PLAYING" } else { "PAUSED" }
-        );
-    }
-}
-
 fn handle_controls(
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
     mut simulation: ResMut<Simulation>,
     mut structure: ResMut<ShipStructure>,
+    mut snapshot: ResMut<GpuShipPhysicsSnapshot>,
     mut gpu_physics: ResMut<GpuShipPhysicsAssets>,
     mut shader_buffers: ResMut<Assets<ShaderBuffer>>,
     markers: Query<Entity, With<LeakMarker>>,
@@ -3542,10 +3231,10 @@ fn handle_controls(
         simulation.paused = !simulation.paused;
     }
     if !simulation.ship_search_active && keys.just_pressed(KeyCode::Digit1) {
-        simulation.tool = Tool::Damage;
+        simulation.tool = Tool::Break;
     }
     if !simulation.ship_search_active && keys.just_pressed(KeyCode::Digit2) {
-        simulation.tool = Tool::Repair;
+        simulation.tool = Tool::Dry;
     }
     if !simulation.ship_search_active && keys.just_pressed(KeyCode::KeyR) {
         for entity in &markers {
@@ -3563,7 +3252,7 @@ fn handle_controls(
             spring.broken = false;
         }
         structure.flooding = 0.0;
-        structure.motion_position = Vec2::new(0.0, SEA_LEVEL + 16.0);
+        structure.motion_position = Vec2::new(0.0, SEA_LEVEL);
         structure.motion_velocity = Vec2::ZERO;
         structure.manual_offset = Vec2::ZERO;
         structure.angle = 0.0;
@@ -3571,170 +3260,58 @@ fn handle_controls(
         let texel_rest_positions = structure.texel_rest_positions.clone();
         structure.texel_positions.clone_from(&texel_rest_positions);
         reset_gpu_ship_physics(&structure, &mut gpu_physics, &mut shader_buffers);
+        *snapshot = GpuShipPhysicsSnapshot::default();
         return;
     }
 
-    if !simulation.paused {
-        simulation.elapsed += time.delta_secs();
-        if simulation.cycle_enabled {
-            let phase = std::f32::consts::TAU * simulation.elapsed
-                / simulation.cycle_length.max(1.0)
-                + simulation.cycle_phase;
-            simulation.day = 0.5 + 0.5 * phase.cos();
-        }
+    if !simulation.paused && simulation.cycle_enabled {
+        simulation.day = time_sync::daylight(simulation.elapsed, simulation.cycle_length);
     }
 }
-
-fn handle_camera_zoom(
-    mut wheel: MessageReader<MouseWheel>,
-    keys: Res<ButtonInput<KeyCode>>,
+fn select_ship_layer(
     mouse: Res<ButtonInput<MouseButton>>,
-    simulation: Res<Simulation>,
     windows: Query<&Window>,
-    mut cameras: Query<
-        (&Camera, &GlobalTransform, &mut Projection, &mut Transform),
-        With<WorldCamera>,
-    >,
-    mut last_drag: Local<Option<Vec2>>,
+    catalog: Res<ShipCatalog>,
+    mut simulation: ResMut<Simulation>,
 ) {
+    if !mouse.just_pressed(MouseButton::Left)
+        || simulation.toolbox_collapsed
+        || !simulation.show_tools
+    {
+        return;
+    }
     let Ok(window) = windows.single() else { return };
-    let cursor = window
-        .cursor_position()
-        .unwrap_or(Vec2::new(window.width() * 0.5, window.height() * 0.5));
-    let wheel_delta: f32 = wheel
-        .read()
-        .map(|event| match event.unit {
-            MouseScrollUnit::Line => event.y,
-            MouseScrollUnit::Pixel => event.y / 40.0,
-        })
-        .sum();
-    let ui_units_per_pixel = 720.0 / window.height().max(1.0);
-    // The toolbox occupies logical x=-640..-290. Convert its right edge to
-    // window coordinates; adding the panel width incorrectly blocked nearly
-    // the whole world viewport from wheel and drag input.
-    let world_left_edge = window.width() * 0.5 - 290.0 / ui_units_per_pixel;
-    let logical_cursor = Vec2::new(
-        (cursor.x - window.width() * 0.5) * ui_units_per_pixel,
-        (window.height() * 0.5 - cursor.y) * ui_units_per_pixel,
+    let Some(cursor) = window.cursor_position() else {
+        return;
+    };
+    let scale = 720.0 / window.height().max(1.0);
+    let point = Vec2::new(
+        (cursor.x - window.width() * 0.5) * scale,
+        (window.height() * 0.5 - cursor.y) * scale,
     );
-    let in_world_view = window.cursor_position().is_some()
-        && cursor.x >= world_left_edge
-        && !(simulation.show_tools && point_in_tool_panel(logical_cursor));
-    let mut notches: f32 = if in_world_view { wheel_delta } else { 0.0 };
-    if keys.just_pressed(KeyCode::Equal) || keys.just_pressed(KeyCode::NumpadAdd) {
-        notches += 1.0;
-    }
-    if keys.just_pressed(KeyCode::Minus) || keys.just_pressed(KeyCode::NumpadSubtract) {
-        notches -= 1.0;
-    }
-    let Ok((camera, global, mut projection, mut transform)) = cameras.single_mut() else {
-        return;
-    };
-    let old_scale = match &*projection {
-        Projection::Orthographic(ortho) => ortho.scale,
-        _ => return,
-    };
-    // Right-drag always pans the view, regardless of the selected ship tool.
-    let pan_button = MouseButton::Right;
-    if mouse.just_pressed(pan_button) && in_world_view {
-        *last_drag = Some(cursor);
-    }
-    if mouse.pressed(pan_button) && in_world_view {
-        if let Some(previous) = *last_drag {
-            let delta = cursor - previous;
-            transform.translation += Vec3::new(
-                -delta.x * ui_units_per_pixel * old_scale,
-                delta.y * ui_units_per_pixel * old_scale,
-                0.0,
-            );
-            *last_drag = Some(cursor);
-        }
+    if !point_in_tool_panel(point)
+        || !(-260.0..=-30.0).contains(&point.x)
+        || !(296.0..=324.0).contains(&point.y)
+    {
         return;
     }
-    *last_drag = None;
-    if keys.just_pressed(KeyCode::Digit0) {
-        if let Projection::Orthographic(ortho) = &mut *projection {
-            ortho.scale = 1.0;
-        }
-        transform.translation.x = 0.0;
-        transform.translation.y = 0.0;
-        return;
-    }
-    if notches == 0.0 {
-        return;
-    }
-    let world_point = camera
-        .viewport_to_world_2d(global, cursor)
-        .unwrap_or(Vec2::ZERO);
-    let new_scale = (old_scale * 2.0f32.powf(-notches * 0.2)).clamp(0.12, 4.0);
-    let ratio = new_scale / old_scale;
-    if let Projection::Orthographic(ortho) = &mut *projection {
-        ortho.scale = new_scale;
-    }
-    let camera_center = transform.translation.truncate();
-    transform.translation.x = world_point.x - (world_point.x - camera_center.x) * ratio;
-    transform.translation.y = world_point.y - (world_point.y - camera_center.y) * ratio;
+    let count = catalog
+        .1
+        .get(simulation.ship_index)
+        .map_or(1, |layers| layers.len().max(1));
+    simulation.selected_layer = (simulation.selected_layer + 1) % count;
 }
 
-fn handle_ship_move(
-    mouse: Res<ButtonInput<MouseButton>>,
-    windows: Query<&Window>,
-    cameras: Query<(&Camera, &GlobalTransform), With<WorldCamera>>,
-    ships: Query<&Transform, With<ShipSprite>>,
+fn update_ship_layer_label(
+    catalog: Res<ShipCatalog>,
     simulation: Res<Simulation>,
-    mut structure: ResMut<ShipStructure>,
-    mut previous_world: Local<Option<Vec2>>,
+    mut labels: Query<&mut Text2d, With<ShipLayerLabel>>,
 ) {
-    if simulation.tool != Tool::Move || simulation.paused {
-        *previous_world = None;
-        return;
-    }
-    let (Ok(window), Ok((camera, camera_transform))) = (windows.single(), cameras.single()) else {
-        *previous_world = None;
-        return;
-    };
-    let Some(cursor) = window.cursor_position() else {
-        *previous_world = None;
-        return;
-    };
-    let ui_scale = 720.0 / window.height().max(1.0);
-    let ui_point = Vec2::new(
-        (cursor.x - window.width() * 0.5) * ui_scale,
-        (window.height() * 0.5 - cursor.y) * ui_scale,
-    );
-    if simulation.show_tools && point_in_tool_panel(ui_point) {
-        *previous_world = None;
-        return;
-    }
-    let world_left = window.width() * 0.5 - 290.0 / ui_scale;
-    if !simulation.toolbox_collapsed && cursor.x < world_left {
-        *previous_world = None;
-        return;
-    }
-    let Ok(world) = camera.viewport_to_world_2d(camera_transform, cursor) else {
-        *previous_world = None;
-        return;
-    };
-    if mouse.just_pressed(MouseButton::Left) {
-        let Ok(ship) = ships.single() else { return };
-        let local = (ship.rotation.inverse() * (world - ship.translation.truncate()).extend(0.0))
-            .truncate();
-        if local.x.abs() <= SHIP_HALF_WIDTH
-            && (-structure.half_height..=structure.half_height).contains(&local.y)
-        {
-            *previous_world = Some(world);
-        } else {
-            *previous_world = None;
-        }
-    } else if mouse.pressed(MouseButton::Left) {
-        if let Some(previous) = *previous_world {
-            let delta = world - previous;
-            structure.manual_offset += delta;
-            structure.motion_position += delta;
-        }
-        *previous_world = Some(world);
-    } else {
-        *previous_world = None;
+    let layer = catalog
+        .layer_name(simulation.ship_index, simulation.selected_layer)
+        .unwrap_or("Default");
+    for mut label in &mut labels {
+        label.0 = layer.to_owned();
     }
 }
 
@@ -3952,8 +3529,9 @@ fn import_dropped_ship(
 
 fn load_selected_ship(
     catalog: Res<ShipCatalog>,
-    simulation: Res<Simulation>,
+    mut simulation: ResMut<Simulation>,
     mut structure: ResMut<ShipStructure>,
+    mut snapshot: ResMut<GpuShipPhysicsSnapshot>,
     mut gpu_physics: ResMut<GpuShipPhysicsAssets>,
     mut shader_buffers: ResMut<Assets<ShaderBuffer>>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -3971,14 +3549,17 @@ fn load_selected_ship(
         return;
     };
     *last_ship = Some(simulation.ship_index);
+    simulation.selected_layer = 0;
     *structure = ShipStructure::load_for_choice(choice);
     reset_gpu_ship_physics(&structure, &mut gpu_physics, &mut shader_buffers);
+    *snapshot = GpuShipPhysicsSnapshot::default();
     let replacement = build_deformable_ship_mesh(&structure);
     for (ship_mesh, mut sync_state) in &mut ship_meshes {
         if let Some(mut mesh) = meshes.get_mut(&ship_mesh.0) {
             *mesh = replacement.clone();
         }
         sync_state.0.clone_from(&structure.breached);
+        sync_state.1.clear();
     }
 }
 
@@ -3990,6 +3571,7 @@ fn select_toolbox_tab_and_settings(
     rows: Query<(&SettingRow, &Transform, &Visibility)>,
     mut simulation: ResMut<Simulation>,
     mut dragging: Local<Option<(usize, Vec2)>>,
+    mut music: ResMut<music_player::MusicPlayer>,
 ) {
     let Ok(window) = windows.single() else { return };
     let Some(cursor) = window.cursor_position() else {
@@ -4009,6 +3591,7 @@ fn select_toolbox_tab_and_settings(
             match index {
                 DRAG_SEA_COLOR => apply_sea_color_point(point, &mut simulation),
                 DRAG_SEA_HUE => apply_sea_hue_point(point, &mut simulation),
+                DRAG_SEA_ALPHA => simulation.sea_alpha = toolbox::alpha_at(point.y),
                 _ => simulation.adjust(index, (point.x - previous.x) * setting_drag_speed(index)),
             }
             *dragging = Some((index, point));
@@ -4029,13 +3612,6 @@ fn select_toolbox_tab_and_settings(
         *dragging = Some((19, point));
         return;
     }
-    if mouse.just_pressed(MouseButton::Left)
-        && (74.0..=96.0).contains(&point.x)
-        && (298.0..=322.0).contains(&point.y)
-    {
-        simulation.show_internal_water = !simulation.show_internal_water;
-        return;
-    }
     if simulation.toolbox_collapsed {
         return;
     }
@@ -4043,6 +3619,15 @@ fn select_toolbox_tab_and_settings(
         return;
     }
     if simulation.active_tab == ToolboxTab::Graphics {
+        if (-419.0..=-405.0).contains(&point.x) && (-310.0..=50.0).contains(&point.y) {
+            *dragging = Some((DRAG_SEA_ALPHA, point));
+            simulation.sea_alpha = toolbox::alpha_at(point.y);
+            return;
+        }
+        if let Some(channel) = toolbox::rgba_readout_hit(point) {
+            *dragging = Some((21 + channel, point));
+            return;
+        }
         if (-627.0..=-439.0).contains(&point.x) && (-310.0..=50.0).contains(&point.y) {
             *dragging = Some((DRAG_SEA_COLOR, point));
             apply_sea_color_point(point, &mut simulation);
@@ -4085,12 +3670,12 @@ fn select_toolbox_tab_and_settings(
             simulation.show_internal_water = !simulation.show_internal_water
         }
         SettingAction::ToggleMusic => simulation.music_playing = !simulation.music_playing,
-        SettingAction::PreviousTrack => {
-            simulation.music_index =
-                (simulation.music_index + MUSIC_TRACKS.len() - 1) % MUSIC_TRACKS.len();
-        }
+        SettingAction::ToggleShuffle => music.shuffle = !music.shuffle,
+        SettingAction::ToggleRepeat => music.repeat = !music.repeat,
         SettingAction::NextTrack => {
-            simulation.music_index = (simulation.music_index + 1) % MUSIC_TRACKS.len()
+            music.paused = !simulation.music_playing;
+            music.next_track();
+            simulation.music_playing = !music.paused;
         }
     }
 }
@@ -4107,6 +3692,7 @@ fn setting_drag_speed(index: usize) -> f32 {
         16 => 1.0,
         17 => 0.1,
         18 => 0.005,
+        21..=24 => 1.0 / 255.0,
         _ => 0.01,
     }
 }
@@ -4233,7 +3819,7 @@ fn hue_bar_mesh() -> Mesh {
     mesh
 }
 
-fn alpha_bar_mesh() -> Mesh {
+fn alpha_bar_mesh(color: Vec3) -> Mesh {
     const COLUMNS: usize = 2;
     const ROWS: usize = 16;
     let mut positions = Vec::with_capacity(COLUMNS * ROWS * 4);
@@ -4253,7 +3839,15 @@ fn alpha_bar_mesh() -> Mesh {
                 [right, top, 0.0],
                 [right, bottom, 0.0],
             ]);
-            colors.extend_from_slice(&[[shade, shade, shade, 1.0]; 4]);
+            for alpha in [
+                1.0 - row as f32 / ROWS as f32,
+                1.0 - (row + 1) as f32 / ROWS as f32,
+                1.0 - row as f32 / ROWS as f32,
+                1.0 - (row + 1) as f32 / ROWS as f32,
+            ] {
+                let rgb = Vec3::splat(shade).lerp(color, alpha);
+                colors.push([rgb.x, rgb.y, rgb.z, 1.0]);
+            }
             indices.extend_from_slice(&[base, base + 1, base + 2, base + 2, base + 1, base + 3]);
         }
     }
@@ -4291,13 +3885,15 @@ fn sync_settings_ui(
         (&SettingToggleMark, &mut Text2d),
         (Without<SettingReadout>, Without<SeaColorReadout>),
     >,
-    mut sea_color_preview: Query<&mut Sprite, (With<SeaColorPreview>, Without<TabButton>)>,
-    mut color_selector: Query<&mut Transform, With<SeaColorSelector>>,
+    mut sea_color_preview: Query<(&SeaColorPreview, &mut Sprite), Without<TabButton>>,
+    mut color_selector: Query<(&mut Transform, Option<&SeaAlphaSelector>), With<SeaColorSelector>>,
     mut color_readouts: Query<
         (&SeaColorReadout, &mut Text2d),
         (Without<SettingReadout>, Without<SettingToggleMark>),
     >,
     color_picker: Query<&SeaColorPicker>,
+    alpha_picker: Query<&SeaAlphaPicker>,
+    mut last_alpha_color: Local<Option<[u32; 3]>>,
     mut last_picker_hue: Local<Option<u32>>,
 ) {
     for (page, mut visibility) in &mut pages {
@@ -4333,12 +3929,22 @@ fn sync_settings_ui(
         };
         label.0 = if checked { "✓" } else { "" }.to_owned();
     }
-    for mut preview in &mut sea_color_preview {
-        preview.color = Color::srgb(
+    for (half, mut preview) in &mut sea_color_preview {
+        preview.color = Color::srgba(
             simulation.sea_color.x,
             simulation.sea_color.y,
             simulation.sea_color.z,
+            if half.0 { simulation.sea_alpha } else { 1.0 },
         );
+    }
+    let color_key = simulation.sea_color.to_array().map(f32::to_bits);
+    if *last_alpha_color != Some(color_key) {
+        for picker in &alpha_picker {
+            if let Some(mut mesh) = meshes.get_mut(&picker.0) {
+                *mesh = alpha_bar_mesh(simulation.sea_color);
+            }
+        }
+        *last_alpha_color = Some(color_key);
     }
     let hue_key = simulation.sea_hue.to_bits();
     if *last_picker_hue != Some(hue_key) {
@@ -4349,7 +3955,11 @@ fn sync_settings_ui(
         }
         *last_picker_hue = Some(hue_key);
     }
-    if let Ok(mut transform) = color_selector.single_mut() {
+    for (mut transform, alpha) in &mut color_selector {
+        if alpha.is_some() {
+            transform.translation.y = toolbox::alpha_marker_y(simulation.sea_alpha);
+            continue;
+        }
         let (_, saturation, value) = rgb_to_hsv(simulation.sea_color);
         transform.translation.x = -627.0 + saturation * 188.0;
         transform.translation.y = -310.0 + value * 360.0;
@@ -4359,7 +3969,7 @@ fn sync_settings_ui(
             (simulation.sea_color.x * 255.0).round() as u8,
             (simulation.sea_color.y * 255.0).round() as u8,
             (simulation.sea_color.z * 255.0).round() as u8,
-            255,
+            (simulation.sea_alpha * 255.0).round() as u8,
         ];
         let channel_name = ["R", "G", "B", "A"][readout.0.min(3)];
         label.0 = format!("{channel_name}: {}", channels[readout.0.min(3)]);
@@ -4407,100 +4017,13 @@ fn select_tool_from_panel(
         return;
     }
     if (-248.0..=-192.0).contains(&x) {
-        simulation.tool = Tool::Damage;
+        simulation.tool = Tool::Break;
     } else if (-170.0..=-114.0).contains(&x) {
-        simulation.tool = Tool::Pump;
+        simulation.tool = Tool::Dry;
     } else if (-92.0..=-36.0).contains(&x) {
         simulation.tool = Tool::Flood;
     } else if (-14.0..=42.0).contains(&x) {
         simulation.tool = Tool::Move;
-    }
-}
-
-fn handle_ship_tool(
-    mut commands: Commands,
-    mouse: Res<ButtonInput<MouseButton>>,
-    windows: Query<&Window>,
-    cameras: Query<(&Camera, &GlobalTransform), With<WorldCamera>>,
-    ships: Query<&Transform, With<ShipSprite>>,
-    markers: Query<(Entity, &LeakMarker)>,
-    simulation: Res<Simulation>,
-    mut structure: ResMut<ShipStructure>,
-) {
-    if !mouse.just_pressed(MouseButton::Left) || simulation.paused {
-        return;
-    }
-    let (Ok(window), Ok(ship), Ok((camera, camera_transform))) =
-        (windows.single(), ships.single(), cameras.single())
-    else {
-        return;
-    };
-    let Some(cursor) = window.cursor_position() else {
-        return;
-    };
-    let ui_scale = 720.0 / window.height().max(1.0);
-    let ui_point = Vec2::new(
-        (cursor.x - window.width() * 0.5) * ui_scale,
-        (window.height() * 0.5 - cursor.y) * ui_scale,
-    );
-    if simulation.show_tools && point_in_tool_panel(ui_point) {
-        return;
-    }
-    let logical_x = (cursor.x - window.width() * 0.5) * (720.0 / window.height().max(1.0)) + 640.0;
-    if !simulation.toolbox_collapsed && logical_x < 350.0 {
-        return;
-    }
-    let Ok(world) = camera.viewport_to_world_2d(camera_transform, cursor) else {
-        return;
-    };
-    let local =
-        (ship.rotation.inverse() * (world - ship.translation.truncate()).extend(0.0)).truncate();
-    if local.x.abs() > SHIP_HALF_WIDTH
-        || !(-structure.half_height..=structure.half_height).contains(&local.y)
-    {
-        return;
-    }
-
-    match simulation.tool {
-        Tool::Damage => {
-            // Texture bounds: 269 x 70 pixels at 1.7x scale.
-            if local.x.abs() > SHIP_HALF_WIDTH
-                || !(-structure.half_height..=structure.half_height).contains(&local.y)
-            {
-                return;
-            }
-            if markers
-                .iter()
-                .any(|(_, marker)| marker.0.distance(local) < simulation.tool_size * 1.6)
-            {
-                return;
-            }
-            if !structure.breach_near(local, simulation.tool_size) {
-                return;
-            }
-            commands.spawn((
-                LeakMarker(local),
-                Transform::from_xyz(world.x, world.y, 3.0),
-            ));
-        }
-        Tool::Repair => {
-            let nearest = markers
-                .iter()
-                .map(|(entity, marker)| (entity, marker.0.distance(local)))
-                .filter(|(_, distance)| *distance < 30.0)
-                .min_by(|a, b| a.1.total_cmp(&b.1));
-            if let Some((entity, _)) = nearest {
-                if let Some((_, marker)) =
-                    markers.iter().find(|(candidate, _)| *candidate == entity)
-                {
-                    structure.repair_near(marker.0, simulation.tool_size * 1.25);
-                }
-                commands.entity(entity).despawn();
-            }
-        }
-        Tool::Flood => structure.flood_near(local, simulation.tool_size),
-        Tool::Pump => structure.pump_near(local, simulation.tool_size),
-        Tool::Move => {}
     }
 }
 
@@ -4606,7 +4129,7 @@ fn simulate_ship_physics(
         *half_height,
         *motion_position,
         simulation.elapsed,
-        simulation.wave_amplitude * 25.0,
+        simulation.wave_amplitude,
         simulation.wave_width,
         simulation.gravity,
         delta,
@@ -4661,6 +4184,7 @@ fn simulate_ship_physics(
         // receives differential acceleration so it deforms without double
         // applying gravity to the hull center.
         let mut accelerations = vec![Vec2::ZERO; structure.positions.len()];
+        let mut effective_masses = vec![0.0; structure.positions.len()];
         let mut mean_acceleration = Vec2::ZERO;
         let mut total_mass = 0.0;
         for i in 0..structure.positions.len() {
@@ -4669,7 +4193,7 @@ fn simulate_ship_physics(
             }
             let world_y = structure.motion_position.y + structure.positions[i].y;
             let world_x = structure.motion_position.x + structure.positions[i].x;
-            let amplitude = simulation.wave_amplitude * 25.0;
+            let amplitude = simulation.wave_amplitude;
             let local_y = world_y - SEA_LEVEL;
             let surface = wave_height(
                 world_x,
@@ -4704,6 +4228,7 @@ fn simulate_ship_physics(
                 hull: true,
                 ground: false,
                 rope: false,
+                invisible: false,
             });
             let density = effective_density(
                 material.mass,
@@ -4748,6 +4273,7 @@ fn simulate_ship_physics(
                 acceleration -= relative_velocity / speed * drag_acceleration;
             }
             acceleration = acceleration.clamp_length_max(simulation.gravity.max(0.0) * 8.0);
+            effective_masses[i] = density;
             accelerations[i] = acceleration;
             mean_acceleration += acceleration * density;
             total_mass += density;
@@ -4770,12 +4296,14 @@ fn simulate_ship_physics(
                 if spring.broken || breached[spring.a] || breached[spring.b] {
                     continue;
                 }
-                let mass_a = normalized_node_mass(materials[spring.a]);
-                let mass_b = normalized_node_mass(materials[spring.b]);
+                let mass_a = effective_masses[spring.a];
+                let mass_b = effective_masses[spring.b];
                 let delta_position = positions[spring.b] - positions[spring.a];
                 let velocity_a = (positions[spring.a] - last_positions[spring.a]) / dt;
                 let velocity_b = (positions[spring.b] - last_positions[spring.b]) / dt;
-                let force = spring_force(
+                let rope = materials[spring.a].is_some_and(|m| m.rope)
+                    || materials[spring.b].is_some_and(|m| m.rope);
+                let (force, elastic_load) = source_cpu_spring_force(
                     delta_position,
                     velocity_b - velocity_a,
                     spring.rest_length,
@@ -4783,24 +4311,20 @@ fn simulate_ship_physics(
                     mass_b,
                     simulation.rigidity,
                     simulation.damping,
+                    rope,
+                    substeps,
+                    delta,
                 );
+                spring_accelerations[spring.a] += force / mass_a;
+                spring_accelerations[spring.b] -= force / mass_b;
                 if should_break_spring(
-                    spring_extension_force(
-                        delta_position,
-                        spring.rest_length,
-                        mass_a,
-                        mass_b,
-                        simulation.rigidity,
-                    ),
+                    elastic_load,
                     spring.tensile_strength * break_pass_scale,
                     spring.compressive_strength * break_pass_scale,
                     simulation.strength,
                 ) {
                     break_spring(spring, strut_masks);
-                    continue;
                 }
-                spring_accelerations[spring.a] += force / mass_a;
-                spring_accelerations[spring.b] -= force / mass_b;
             }
         }
         for i in 0..structure.positions.len() {
@@ -4863,6 +4387,8 @@ fn simulate_ship_physics(
 }
 
 fn update_gpu_physics_settings(
+    mut drag: ResMut<tools::move_tool::MoveDragState>,
+    snapshot: Res<GpuShipPhysicsSnapshot>,
     simulation: Res<Simulation>,
     structure: Res<ShipStructure>,
     mut physics: ResMut<GpuShipPhysicsAssets>,
@@ -4871,7 +4397,9 @@ fn update_gpu_physics_settings(
 ) {
     if last_breaches.as_ref() != Some(&structure.breached) {
         if let Some(mut buffer) = buffers.get_mut(&physics.masks) {
-            *buffer = ShaderBuffer::from(gpu_mask_data(&structure));
+            *buffer = ShaderBuffer::from(mask_struts_data::gpu_mask_storage(current_render_masks(
+                &structure, &snapshot,
+            )));
         } else {
             bevy::log::error!("GPU ship physics topology buffer is missing");
         }
@@ -4883,14 +4411,14 @@ fn update_gpu_physics_settings(
         .water_steps
         .round()
         .clamp(1.0, configured_iterations as f32) as u32;
-    let iterations = if simulation.paused {
+    let iterations = if simulation.paused || drag.dragging {
         0
     } else {
         configured_iterations
     };
     physics.iterations = iterations;
     physics.water_steps = water_steps;
-    let data = ShaderBuffer::from(gpu_settings(
+    let mut settings = gpu_settings(
         &structure,
         configured_iterations,
         water_steps,
@@ -4904,13 +4432,19 @@ fn update_gpu_physics_settings(
         simulation.drag,
         simulation.buoyancy,
         simulation.wave_width,
-        simulation.wave_amplitude * 25.0,
+        simulation.wave_amplitude,
         simulation.water_influx,
         simulation.water_flow,
         simulation.water_funk,
         simulation.water_weight,
         1.0 - simulation.thickness,
-    ));
+    );
+    let native_delta = drag.pending_translation;
+    settings[5] = [native_delta.x, native_delta.y, 0.0, 0.0];
+    settings[6] = physics.water_brush.take().unwrap_or([0.0; 4]);
+    settings[7] = physics.break_brush.take().unwrap_or([0.0; 4]);
+    drag.pending_translation = Vec2::ZERO;
+    let data = ShaderBuffer::from(settings);
     if let Some(mut buffer) = buffers.get_mut(&physics.settings) {
         *buffer = data;
     } else {
@@ -4967,15 +4501,11 @@ fn apply_gpu_physics_readback(
     }
 }
 
-fn wave_height(x: f32, time: f32, amplitude: f32, width: f32) -> f32 {
-    let inv_wave = std::f32::consts::PI / width.max(0.001);
-    ((0.7 * (x * inv_wave + time * 0.3).sin() + 0.3 * (3.0 * x * inv_wave - time).sin()) + 1.0)
-        * 0.5
-        * amplitude
-}
+use sea::wave_height;
 
 fn animate_water(
     simulation: Res<Simulation>,
+    camera_control: Res<CameraControlState>,
     windows: Query<&Window>,
     mut ocean_surfaces: Query<&mut OceanSurface>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -4985,7 +4515,11 @@ fn animate_water(
         .single()
         .map(|w| w.width() * 720.0 / w.height().max(1.0) + 16.0)
         .unwrap_or(WORLD_WIDTH);
-    let height = (simulation.wave_amplitude * 25.0).max(1.0) + 2.0;
+    let bounds = camera_control.world_bounds();
+    let screen_width = bounds
+        .map(|(a, b)| a.x.abs().max(b.x.abs()) * 2.0 + 2.0)
+        .unwrap_or(screen_width);
+    let height = (simulation.wave_amplitude).max(1.0) + 2.0;
     for mut ocean in &mut ocean_surfaces {
         if (ocean.width - screen_width).abs() > 0.5 || (ocean.height - height).abs() > 0.5 {
             if let Some(mut mesh) = meshes.get_mut(&ocean.mesh) {
@@ -5004,47 +4538,16 @@ fn animate_water(
             material.params = Vec4::new(
                 std::f32::consts::PI / simulation.wave_width.max(0.001),
                 simulation.elapsed,
-                simulation.wave_amplitude * 25.0,
+                simulation.wave_amplitude,
                 0.0,
             );
         }
     }
 }
 
-fn animate_sky(
-    simulation: Res<Simulation>,
-    windows: Query<&Window>,
-    sky_meshes: Query<&SkyMesh>,
-    mut meshes: ResMut<Assets<Mesh>>,
-) {
-    let screen_width = windows
-        .single()
-        .map(|w| w.width() * 720.0 / w.height().max(1.0))
-        .unwrap_or(WORLD_WIDTH);
-    for sky in &sky_meshes {
-        let Some(mut mesh) = meshes.get_mut(&sky.0) else {
-            continue;
-        };
-        if let Some(VertexAttributeValues::Float32x3(vertices)) =
-            mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION)
-        {
-            vertices[0][0] = -screen_width * 0.5;
-            vertices[1][0] = screen_width * 0.5;
-            vertices[2][0] = screen_width * 0.5;
-            vertices[3][0] = -screen_width * 0.5;
-        }
-        if let Some(VertexAttributeValues::Float32x2(uvs)) =
-            mesh.attribute_mut(Mesh::ATTRIBUTE_UV_0)
-        {
-            for uv in uvs {
-                uv[0] = simulation.day.clamp(0.0, 1.0);
-            }
-        }
-    }
-}
-
 fn animate_sea_depth(
     simulation: Res<Simulation>,
+    camera_control: Res<CameraControlState>,
     windows: Query<&Window>,
     mut oceans: Query<&mut OceanDepth>,
     mut underwater_effects: Query<&mut UnderwaterEffect>,
@@ -5056,8 +4559,17 @@ fn animate_sea_depth(
         .single()
         .map(|w| w.width() * 720.0 / w.height().max(1.0) + 16.0)
         .unwrap_or(WORLD_WIDTH);
-    let depth = simulation.sea_depth.max(1.0);
-    let brightness = (1.0 / simulation.water_darkness.max(0.1)).clamp(0.2, 1.5);
+    let bounds = camera_control.world_bounds();
+    let screen_width = bounds
+        .map(|(a, b)| a.x.abs().max(b.x.abs()) * 2.0 + 2.0)
+        .unwrap_or(screen_width);
+    // Sea.java is fullscreen: the sea depth parameter does not clip its render.
+    let depth = bounds
+        .map(|(a, b)| SEA_LEVEL - a.y.min(b.y) + 2.0)
+        .unwrap_or(simulation.sea_depth)
+        .max(simulation.sea_depth)
+        .max(1.0);
+    let brightness = simulation.water_darkness;
     for mut effect in &mut underwater_effects {
         if (effect.width - screen_width).abs() > 0.5 || (effect.depth - depth).abs() > 0.5 {
             if let Some(mut mesh) = meshes.get_mut(&effect.mesh) {
@@ -5131,7 +4643,7 @@ fn animate_reflection(
         + wave_height(
             ship.translation.x,
             simulation.elapsed,
-            simulation.wave_amplitude * 25.0,
+            simulation.wave_amplitude,
             simulation.wave_width,
         );
     for (mut reflection, mut transform) in &mut reflections {
@@ -5145,7 +4657,7 @@ fn animate_reflection(
             material.params = Vec4::new(
                 std::f32::consts::PI / simulation.wave_width.max(0.001),
                 simulation.elapsed,
-                simulation.wave_amplitude * 25.0,
+                simulation.wave_amplitude,
                 SEA_LEVEL,
             );
         }
@@ -5154,38 +4666,146 @@ fn animate_reflection(
     }
 }
 
+/// BASE-only ships display the derived texture; their physics retains BASE.
+fn load_ship_visual_asset(
+    choice: &ShipChoice,
+    visual_asset: &str,
+    assets: &AssetServer,
+    images: &mut Assets<Image>,
+) -> Handle<Image> {
+    if choice.material_map && visual_asset == choice.physics_asset {
+        let derived = (|| -> Result<image::RgbaImage, String> {
+            let json = std::fs::read_to_string("assets/config/materials.json")
+                .map_err(|error| error.to_string())?;
+            let global = materials::Materials::from_json(&json)?;
+            let thumbnail = ship_thumbnail::ShipThumbnail::from_base_file(std::path::Path::new(
+                &format!("assets/{}", choice.physics_asset),
+            ))?;
+            thumbnail
+                .texture(&ShipLayer::default(), &global)?
+                .ok_or_else(|| "missing default texture".to_owned())
+        })();
+        match derived {
+            Ok(rgba) => {
+                return images.add(texture_2d::ship_texture(rgba));
+            }
+            Err(error) => bevy::log::warn!("Could not derive ship appearance: {error}"),
+        }
+    }
+    match image::open(format!("assets/{visual_asset}")) {
+        Ok(image) => images.add(texture_2d::ship_texture(image.to_rgba8())),
+        Err(error) => {
+            bevy::log::warn!("Could not load source ship texture {visual_asset}: {error}");
+            assets
+                .load_builder()
+                .with_settings(|settings: &mut bevy::image::ImageLoaderSettings| {
+                    settings.sampler = texture_2d::ship_sampler();
+                })
+                .load(visual_asset.to_owned())
+        }
+    }
+}
+
+/// The source returns a black texture for a missing light map on the
+/// selected layer; it does not inherit default-layer lights for other layers.
+fn load_ship_light_assets(
+    choice: &ShipChoice,
+    layer: &ShipLayer,
+    assets: &AssetServer,
+    images: &mut Assets<Image>,
+) -> (Handle<Image>, Handle<Image>) {
+    use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+    let mut black = Image::new(
+        Extent3d {
+            width: 1,
+            height: 1,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        vec![0, 0, 0, 255],
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::default(),
+    );
+    black.sampler = bevy::image::ImageSampler::nearest();
+    let black = images.add(black);
+    let thumbnail = ship_thumbnail::ShipThumbnail::from_base_file(std::path::Path::new(&format!(
+        "assets/{}",
+        choice.physics_asset
+    )))
+    .ok();
+    let mut load = |kind| match thumbnail
+        .as_ref()
+        .and_then(|ship| ship.get_resource(kind, layer))
+    {
+        Some(ship_thumbnail::ThumbnailResource::File(resource)) => match resource.image_data() {
+            Ok(image) => images.add(texture_2d::ship_texture(image)),
+            Err(error) => {
+                bevy::log::warn!("Could not load ship light map: {error}");
+                assets
+                    .load_builder()
+                    .with_settings(|settings: &mut bevy::image::ImageLoaderSettings| {
+                        settings.sampler = texture_2d::ship_sampler();
+                    })
+                    .load(asset_path(&resource.path))
+            }
+        },
+        _ => black.clone(),
+    };
+    (
+        load(ShipResourceType::InLights),
+        load(ShipResourceType::ExLights),
+    )
+}
+
 fn sync_ship_assets(
     assets: Res<AssetServer>,
+    mut images: ResMut<Assets<Image>>,
     catalog: Res<ShipCatalog>,
     simulation: Res<Simulation>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut materials: ResMut<Assets<ShipMaterial>>,
     mut reflection_materials: ResMut<Assets<ReflectionMaterial>>,
     mut ships: Query<(&mut Sprite, &mut Transform, &mut Visibility), With<ShipSprite>>,
     mut mesh_ships: Query<(&ShipMesh, &mut Visibility), Without<ShipSprite>>,
     mut reflections: Query<(&ReflectionMesh, &mut Transform), Without<ShipSprite>>,
-    mut last_ship: Local<Option<usize>>,
+    mut last_ship: Local<Option<(usize, usize)>>,
 ) {
-    if *last_ship == Some(simulation.ship_index) {
+    let state = (simulation.ship_index, simulation.selected_layer);
+    if *last_ship == Some(state) {
         return;
     }
-    *last_ship = Some(simulation.ship_index);
+    *last_ship = Some(state);
     let Some(choice) = catalog.0.get(simulation.ship_index) else {
         return;
     };
+    let visual_asset = catalog
+        .layer_asset(simulation.ship_index, simulation.selected_layer)
+        .unwrap_or(&choice.asset)
+        .to_owned();
+    let image = load_ship_visual_asset(choice, &visual_asset, &assets, &mut images);
+    let layer = catalog
+        .1
+        .get(simulation.ship_index)
+        .and_then(|layers| layers.get(simulation.selected_layer))
+        .map(|entry| entry.name.clone())
+        .unwrap_or_default();
+    let (internal_lights, external_lights) =
+        load_ship_light_assets(choice, &layer, &assets, &mut images);
     for (mut sprite, mut transform, mut visibility) in &mut ships {
-        sprite.image = assets.load(choice.asset.clone());
+        sprite.image = image.clone();
         transform.scale = Vec3::ONE;
         *visibility = Visibility::Hidden;
     }
     for (ship_mesh, mut visibility) in &mut mesh_ships {
         if let Some(mut material) = materials.get_mut(&ship_mesh.1) {
-            material.texture = Some(assets.load(choice.asset.clone()));
+            material.texture = image.clone();
+            material.internal_lights = internal_lights.clone();
+            material.external_lights = external_lights.clone();
         }
         *visibility = Visibility::Inherited;
     }
     for (reflection, mut transform) in &mut reflections {
         if let Some(mut material) = reflection_materials.get_mut(&reflection.material) {
-            material.texture = assets.load(choice.asset.clone());
+            material.texture = image.clone();
         }
         transform.scale = Vec3::splat(choice.scale);
     }
@@ -5336,47 +4956,6 @@ fn animate_leaks(
     }
 }
 
-fn update_damage_brush_preview(
-    windows: Query<&Window>,
-    cameras: Query<(&Camera, &GlobalTransform), With<WorldCamera>>,
-    simulation: Res<Simulation>,
-    mut preview: Query<(&DamageBrushPreview, &mut Transform, &mut Visibility)>,
-) {
-    let (Ok(window), Ok((camera, camera_transform))) = (windows.single(), cameras.single()) else {
-        return;
-    };
-    let Some(cursor) = window.cursor_position() else {
-        for (_, _, mut visibility) in &mut preview {
-            *visibility = Visibility::Hidden;
-        }
-        return;
-    };
-    let scale = 720.0 / window.height().max(1.0);
-    let ui_point = Vec2::new(
-        (cursor.x - window.width() * 0.5) * scale,
-        (window.height() * 0.5 - cursor.y) * scale,
-    );
-    let on_scene = (cursor.x - window.width() * 0.5) * scale + 640.0 >= 350.0
-        && !(simulation.show_tools && point_in_tool_panel(ui_point));
-    let Ok(world) = camera.viewport_to_world_2d(camera_transform, cursor) else {
-        return;
-    };
-    let _ = world;
-    for (component, mut transform, mut visibility) in &mut preview {
-        let show = simulation.tool == Tool::Damage && simulation.show_tools && on_scene;
-        *visibility = if show {
-            Visibility::Inherited
-        } else {
-            Visibility::Hidden
-        };
-        if show {
-            transform.translation =
-                Vec3::new(world.x, world.y, if component.0 { 9.0 } else { 8.0 });
-            transform.scale = Vec3::splat(simulation.tool_size);
-        }
-    }
-}
-
 fn update_hud(
     simulation: Res<Simulation>,
     structure: Res<ShipStructure>,
@@ -5412,6 +4991,48 @@ mod tests {
     use std::time::Duration;
 
     #[test]
+    fn source_geometry_damage_upload_preserves_previously_broken_gpu_links() {
+        let mut structure = ShipStructure::empty_fallback();
+        structure.texel_width = 2;
+        structure.texel_height = 2;
+        structure.texel_solid = vec![true; 4];
+        structure.texel_materials = vec![
+            Some(MaterialProperties {
+                strength: 65.0,
+                tensile_strength: 65.0,
+                compressive_strength: 405.0,
+                mass: 2409.0,
+                hull: true,
+                ground: false,
+                rope: false,
+                invisible: false,
+            });
+            4
+        ];
+        let mut snapshot = GpuShipPhysicsSnapshot::default();
+        snapshot.masks = gpu_mask_data(&structure);
+        snapshot.masks[0][1] &= !2;
+        snapshot.masks[0][2] &= !2;
+        let masks = current_render_masks(&structure, &snapshot);
+        assert_eq!(
+            masks[0][1] & 2,
+            0,
+            "stress-broken diagonal must not be restored"
+        );
+        assert_eq!(
+            masks[0][1] & 5,
+            5,
+            "unbroken east/south links remain present"
+        );
+        structure.breached[0] = true;
+        assert!(
+            current_render_masks(&structure, &snapshot)
+                .iter()
+                .all(|m| *m == [0; 4])
+        );
+    }
+
+    #[test]
     fn material_palette_loads_array_and_single_color_entries() {
         let palette = parse_material_palette(include_str!("../assets/config/materials.json"))
             .expect("the shipped material palette should be valid JSON");
@@ -5432,8 +5053,8 @@ mod tests {
     fn default_ship_internal_water_mesh_has_renderable_geometry() {
         let choice = ShipChoice {
             name: "RMS Titanic".to_owned(),
-            asset: "ships/Titanic_base.png".to_owned(),
-            physics_asset: "ships/Titanic_base.png".to_owned(),
+            asset: "source_ships/Titanic.png".to_owned(),
+            physics_asset: "source_ships/Titanic.png".to_owned(),
             material_map: true,
             scale: 1.0,
         };
@@ -5474,8 +5095,8 @@ mod tests {
     fn default_ship_flood_and_pump_tools_change_interior_water() {
         let choice = ShipChoice {
             name: "RMS Titanic".to_owned(),
-            asset: "ships/Titanic_base.png".to_owned(),
-            physics_asset: "ships/Titanic_base.png".to_owned(),
+            asset: "source_ships/Titanic.png".to_owned(),
+            physics_asset: "source_ships/Titanic.png".to_owned(),
             material_map: true,
             scale: 1.0,
         };
@@ -5503,8 +5124,8 @@ mod tests {
     fn hull_breach_tool_cuts_a_mesh_hole_and_opens_adjacent_links() {
         let choice = ShipChoice {
             name: "RMS Titanic".to_owned(),
-            asset: "ships/Titanic.png".to_owned(),
-            physics_asset: "ships/Titanic_base.png".to_owned(),
+            asset: "source_ships/Titanic.png".to_owned(),
+            physics_asset: "source_ships/Titanic.png".to_owned(),
             material_map: true,
             scale: 1.0,
         };
@@ -5624,7 +5245,9 @@ mod tests {
         let choice = ShipCatalog::discover()
             .0
             .into_iter()
-            .find(|choice| choice.name == "RMS Titanic" && choice.material_map)
+            .find(|choice| {
+                (choice.name == "RMS Titanic" || choice.name == "Titanic") && choice.material_map
+            })
             .expect("Titanic source material map");
         let image = image::open(format!("assets/{}", choice.physics_asset))
             .expect("Titanic source material image")
@@ -5674,11 +5297,13 @@ mod tests {
         let choice = ShipCatalog::discover()
             .0
             .into_iter()
-            .find(|choice| choice.name == "RMS Titanic" && choice.material_map)
+            .find(|choice| {
+                (choice.name == "RMS Titanic" || choice.name == "Titanic") && choice.material_map
+            })
             .expect("Titanic source material map");
         let structure = ShipStructure::load_for_choice(&choice);
         let mesh = build_deformable_ship_mesh(&structure);
-        let expected_vertices = (structure.texel_width + 1) * (structure.texel_height + 1);
+        let expected_vertices = structure.texel_width * structure.texel_height;
         let actual_vertices = mesh
             .attribute(Mesh::ATTRIBUTE_POSITION)
             .and_then(VertexAttributeValues::as_float3)
@@ -5698,6 +5323,7 @@ mod tests {
             hull: true,
             ground: false,
             rope: false,
+            invisible: false,
         });
         samples.add(MaterialProperties {
             strength: 30.0,
@@ -5707,6 +5333,7 @@ mod tests {
             hull: false,
             ground: false,
             rope: false,
+            invisible: false,
         });
 
         let properties = samples.into_properties().expect("two material samples");
@@ -5738,7 +5365,7 @@ mod tests {
 
     #[test]
     fn hsv_picker_round_trips_blue_and_grayscale() {
-        let blue = Vec3::new(0.02, 0.36, 0.76);
+        let blue = Vec3::new(0.0, 71.0 / 255.0, 159.0 / 255.0);
         let (hue, saturation, value) = rgb_to_hsv(blue);
         let round_trip = hsv_to_rgb(hue, saturation, value);
 
@@ -5748,22 +5375,25 @@ mod tests {
 
     #[test]
     fn ship_search_filters_names_without_reordering_catalog() {
-        let catalog = ShipCatalog(vec![
-            ShipChoice {
-                name: "RMS Titanic".to_owned(),
-                asset: "titanic.png".to_owned(),
-                physics_asset: "titanic_base.png".to_owned(),
-                material_map: true,
-                scale: 1.0,
-            },
-            ShipChoice {
-                name: "Queen Mary".to_owned(),
-                asset: "queen.png".to_owned(),
-                physics_asset: "queen.png".to_owned(),
-                material_map: false,
-                scale: 1.0,
-            },
-        ]);
+        let catalog = ShipCatalog(
+            vec![
+                ShipChoice {
+                    name: "RMS Titanic".to_owned(),
+                    asset: "titanic.png".to_owned(),
+                    physics_asset: "titanic_base.png".to_owned(),
+                    material_map: true,
+                    scale: 1.0,
+                },
+                ShipChoice {
+                    name: "Queen Mary".to_owned(),
+                    asset: "queen.png".to_owned(),
+                    physics_asset: "queen.png".to_owned(),
+                    material_map: false,
+                    scale: 1.0,
+                },
+            ],
+            Vec::new(),
+        );
 
         assert_eq!(filtered_ship_indices(&catalog, "QUEEN"), vec![1]);
         assert_eq!(filtered_ship_indices(&catalog, ""), vec![0, 1]);
@@ -5778,7 +5408,7 @@ mod tests {
             material_map: false,
             scale: 1.0,
         };
-        let mut catalog = ShipCatalog(Vec::new());
+        let mut catalog = ShipCatalog(Vec::new(), Vec::new());
 
         assert_eq!(catalog.add_imported(choice.clone()), 0);
         assert_eq!(catalog.add_imported(choice), 0);
@@ -6017,6 +5647,129 @@ mod tests {
             max_deformation < structure.half_height * 0.25,
             "unassisted simulation deformed a hull node by {max_deformation}"
         );
+    }
+
+    #[test]
+    fn titanic_cpu_solver_does_not_tear_without_user_damage() {
+        let catalog = ShipCatalog::discover();
+        let choice = catalog
+            .0
+            .iter()
+            .find(|choice| choice.name == "RMS Titanic" || choice.name == "Titanic")
+            .expect("Titanic reference fixture");
+        let structure = ShipStructure::load_for_choice(choice);
+        let mut app = App::new();
+        app.init_resource::<Time>();
+        app.insert_resource(ButtonInput::<KeyCode>::default());
+        app.insert_resource(Simulation::default());
+        app.insert_resource(structure);
+        app.add_systems(Update, simulate_ship_physics);
+
+        for _ in 0..120 {
+            app.world_mut()
+                .resource_mut::<Time>()
+                .advance_by(Duration::from_secs_f32(1.0 / 60.0));
+            app.update();
+        }
+
+        let structure = app.world().resource::<ShipStructure>();
+        let broken_springs = structure
+            .springs
+            .iter()
+            .filter(|spring| spring.broken)
+            .count();
+        let mean_displacement = structure
+            .positions
+            .iter()
+            .zip(&structure.rest_positions)
+            .zip(&structure.solid)
+            .filter_map(|((position, rest), solid)| solid.then_some(*position - *rest))
+            .fold((Vec2::ZERO, 0usize), |(sum, count), displacement| {
+                (sum + displacement, count + 1)
+            });
+        let mean_displacement = mean_displacement.0 / mean_displacement.1.max(1) as f32;
+        let max_deformation = structure
+            .positions
+            .iter()
+            .zip(&structure.rest_positions)
+            .zip(&structure.solid)
+            .filter_map(|((position, rest), solid)| {
+                solid.then_some((*position - *rest - mean_displacement).length())
+            })
+            .max_by(f32::total_cmp)
+            .unwrap_or(0.0);
+        assert_eq!(
+            broken_springs,
+            0,
+            "unassisted simulation broke {broken_springs} of {} springs",
+            structure.springs.len()
+        );
+        assert!(
+            max_deformation < structure.half_height * 0.25,
+            "unassisted simulation deformed a hull node by {max_deformation}"
+        );
+    }
+
+    #[test]
+    fn cpu_spring_force_matches_original_iteration_mass_damping_and_rope_formula() {
+        let delta = Vec2::new(1.01, 0.0);
+        let velocity = Vec2::new(0.0, 0.5);
+        let frame_delta = 1.0 / 60.0;
+        let (force, elastic) = source_cpu_spring_force(
+            delta,
+            velocity,
+            1.0,
+            206.0,
+            300.0,
+            1.0,
+            1.0,
+            false,
+            50,
+            frame_delta,
+        );
+        let b = 0.03 * (50.0 / frame_delta) * 50.0;
+        let expected = (delta.length() - 1.0) * 750.0 * 206.0 * b;
+        assert!((elastic - expected).abs() < expected.abs() * 1.0e-5);
+        assert_eq!(force.y, b * 0.5);
+        let (_, rope) = source_cpu_spring_force(
+            delta,
+            velocity,
+            1.0,
+            206.0,
+            300.0,
+            1.0,
+            1.0,
+            true,
+            50,
+            frame_delta,
+        );
+        assert!((rope - elastic * 0.001).abs() < 0.01);
+        let (_, doubled_iterations) = source_cpu_spring_force(
+            delta,
+            velocity,
+            1.0,
+            206.0,
+            300.0,
+            1.0,
+            1.0,
+            false,
+            100,
+            frame_delta,
+        );
+        assert!((doubled_iterations - elastic * 4.0).abs() < 1.0);
+        let (_, doubled_mass) = source_cpu_spring_force(
+            delta,
+            velocity,
+            1.0,
+            412.0,
+            600.0,
+            1.0,
+            1.0,
+            false,
+            50,
+            frame_delta,
+        );
+        assert!((doubled_mass - elastic * 2.0).abs() < 1.0);
     }
 
     #[test]

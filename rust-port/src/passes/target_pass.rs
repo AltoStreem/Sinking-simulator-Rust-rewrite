@@ -8,6 +8,11 @@ use super::{
 use std::rc::Rc;
 pub(crate) trait StencilTarget {
     fn size(&self) -> [i32; 2];
+    fn native_target(
+        &self,
+    ) -> Option<std::sync::Arc<dyn crate::framebuffer_target::FramebufferTarget>> {
+        None
+    }
 }
 pub(crate) trait TargetBinding {
     fn viewport(&mut self) -> [i32; 4];
@@ -15,6 +20,7 @@ pub(crate) trait TargetBinding {
     fn draw_buffers(&mut self, attachments: &[u32]);
     fn set_viewport(&mut self, viewport: [i32; 4]);
     fn unbind(&mut self);
+    fn check_error(&mut self, _label: &str) {}
 }
 pub(crate) struct TargetPass {
     pub target: Box<dyn TargetBinding>,
@@ -49,8 +55,11 @@ impl TargetPass {
         viewport
     }
     fn end_draw(&mut self, viewport: [i32; 4]) {
+        self.target.check_error("After FB Draw");
         self.target.unbind();
+        self.target.check_error("FB Unbind");
         self.target.set_viewport(viewport);
+        self.target.check_error("FB reset wiewport");
     }
 }
 impl Pass for TargetPass {

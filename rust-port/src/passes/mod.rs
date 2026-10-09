@@ -4,6 +4,7 @@ pub mod custom_pass;
 pub mod direct_pass;
 pub mod initializable_pass;
 pub mod initializable_stateful_pass;
+pub mod native_pass_factory;
 pub mod pass;
 pub mod pass_builder;
 pub mod provider_pass;

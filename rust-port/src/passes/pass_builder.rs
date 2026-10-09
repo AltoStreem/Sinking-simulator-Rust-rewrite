@@ -96,6 +96,9 @@ impl TextureStep<'_> {
     pub fn reset_stencil(&mut self) {
         self.stencil = None;
     }
+    pub fn set_stencil_target(&mut self, stencil: Rc<dyn StencilTarget>) {
+        self.stencil = Some(stencil);
+    }
     pub fn add_pass(&mut self, pass: Box<dyn Pass>) {
         self.passes.push(pass);
     }

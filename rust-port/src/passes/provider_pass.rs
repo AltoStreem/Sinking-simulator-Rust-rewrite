@@ -8,6 +8,9 @@ use super::{
 pub(crate) trait TextureBinding {
     fn bind(&mut self, unit: usize);
     fn unbind(&mut self, unit: usize);
+    fn native_texture(&self) -> Option<std::sync::Arc<crate::texture_2d::SourceTexture2D>> {
+        None
+    }
 }
 pub(crate) struct ProviderPass {
     pub src: Vec<Box<dyn TextureBinding>>,

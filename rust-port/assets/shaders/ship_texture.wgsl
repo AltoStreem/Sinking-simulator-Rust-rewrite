@@ -10,15 +10,15 @@
 @group(#{MATERIAL_BIND_GROUP}) @binding(7) var external_sampler: sampler;
 @group(#{MATERIAL_BIND_GROUP}) @binding(8) var<storage, read> water: array<vec4<f32>>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(9) var<storage, read> masks: array<vec4<u32>>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(11) var<uniform> coverage_mode: vec4<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(12) var hull_coverage: texture_2d<f32>;
 
 // The original OpenGL textures and framebuffer operated on RGB code values.
 // Recover those values from Bevy's sRGB texture decoding, apply the source
-// shader, then return linear RGB for Bevy's sRGB output attachment.
+// shader, and retain source RGB in the UNORM scene framebuffer. Sea converts
+// the completed composition to linear RGB for the final sRGB attachment.
 fn source_rgb(linear: vec3<f32>) -> vec3<f32> {
     return select(1.055 * pow(max(linear,vec3<f32>(0.0)),vec3<f32>(1.0/2.4)) - 0.055, linear * 12.92, linear <= vec3<f32>(0.0031308));
-}
-fn output_rgb(rgb: vec3<f32>) -> vec3<f32> {
-    return select(pow(max((rgb+0.055)/1.055,vec3<f32>(0.0)),vec3<f32>(2.4)), rgb/12.92, rgb <= vec3<f32>(0.04045));
 }
 
 @fragment
@@ -37,5 +37,9 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
         color=mix(color,vec4<f32>(sea_color.rgb,1.0),clamp(water[index].x,0.0,1.0)*0.75*params.y);
     }
     color=vec4<f32>(color.rgb*brightness+source_rgb(inlight.rgb)*inlight.a*(vec3<f32>(1.0)-brightness),color.a);
-    return vec4<f32>(output_rgb(color.rgb),color.a);
+    // Source stencil ifnot1 tests geometry coverage, including transparent texels.
+    if coverage_mode.x > 0.5 {
+        if textureLoad(hull_coverage, vec2<i32>(mesh.position.xy), 0).r > 0.5 { discard; }
+    }
+    return color;
 }

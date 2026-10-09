@@ -4,6 +4,7 @@
 @group(#{MATERIAL_BIND_GROUP}) @binding(2) var<uniform> col: vec4<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(3) var tex: texture_2d<f32>;
 @group(#{MATERIAL_BIND_GROUP}) @binding(4) var tex_sampler: sampler;
+@group(#{MATERIAL_BIND_GROUP}) @binding(5) var<uniform> sampling: vec4<f32>;
 
 // Source LINEAR_MIPMAP_LINEAR and transparent GL_CLAMP_TO_BORDER sampling.
 fn border_texel(point: vec2<i32>, size: vec2<i32>, level: i32) -> vec4<f32> {
@@ -19,6 +20,8 @@ fn linear_level(uv: vec2<f32>, level: i32) -> vec4<f32> {
         mix(border_texel(base + vec2<i32>(0, 1), size, level), border_texel(base + vec2<i32>(1, 1), size, level), fraction.x), fraction.y);
 }
 fn reflection_sample(uv: vec2<f32>, bias: f32) -> vec4<f32> {
+    // The source GLSL texture(tex, uv, bias) uses the driver's implicit LOD.
+    if sampling.x > 0.5 { return textureSampleBias(tex, tex_sampler, uv, bias); }
     let dimensions = vec2<f32>(textureDimensions(tex));
     let dx = dpdx(uv) * dimensions;
     let dy = dpdy(uv) * dimensions;
@@ -49,5 +52,12 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
     let coverage = smoothstep(y, y2, waterdepth);
     let color = water_color * coverage;
     let prev = textureSample(tex, tex_sampler, mesh.uv);
-    return vec4<f32>(mix(prev.rgb, color.rgb, color.a), max(prev.a, color.a));
+    let rgb = mix(prev.rgb, color.rgb, color.a);
+    // The source default framebuffer stores RGB bytes before the brush blends.
+    if sampling.w != 0.0 { return vec4<f32>(rgb, max(prev.a, color.a)); }
+    // Convert only after source-space reflection, water mixing and filtering.
+    // Bevy's final sRGB attachment encodes this back to the source RGB values.
+    let linear = select(pow(max((rgb + 0.055) / 1.055, vec3<f32>(0.0)), vec3<f32>(2.4)),
+        rgb / 12.92, rgb <= vec3<f32>(0.04045));
+    return vec4<f32>(linear, max(prev.a, color.a));
 }

@@ -63,6 +63,7 @@ const FLOW_LENGTHS: array<f32, 8> = array<f32, 8>(
 
 const AIR: f32 = 1.225;
 const WATER: f32 = 1025.0;
+const SIXTIETH: f32 = 1.0f / 60.0f / 60.0f;
 const WATER_STATE_OFFSET: u32 = 0xffffffffu;
 
 fn dimensions() -> vec2<u32> {
@@ -89,11 +90,12 @@ fn neighbor_index(index: u32, direction: u32) -> u32 {
 fn wave_height(x: f32, time: f32) -> f32 {
     let wave_size = settings[2].zw;
     let inverse_wave = 3.141592 / wave_size.x;
-    return (
-        sin(x * inverse_wave + time * 0.3) * 0.7
-        + sin(inverse_wave * 3.0 * x - time) * 0.3
-        + 1.0
-    ) * 0.5 * wave_size.y;
+    // The original driver rounds invWave*3 before multiplying by x and
+    // contracts the weighted sum as fma(first, .7, second*.3). Reassociation
+    // changes submerged fill depth; original GPU intermediate probes cover it.
+    let a = sin(x * inverse_wave + time * 0.3);
+    let b = sin(bitcast<f32>(bitcast<u32>(inverse_wave * 3.0) ^ bitcast<u32>(settings[8].z)) * x - time);
+    return (fma(a, 0.7, b * 0.3) + 1.0) * 0.5 * wave_size.y;
 }
 
 fn outflow_weight(index: u32, direction: u32) -> f32 {
@@ -112,7 +114,9 @@ fn stored_outflow_velocity(index: u32, direction: u32) -> f32 {
 
 fn is_water_flow_cell(index: u32) -> bool {
     let flags = masks[index].x;
-    return flags != 0u && (flags & 4u) == 0u && (flags & 3u) == 0u;
+    // Source set1If7 requires the dynamic bit set by FILTER_DYNAMIC before
+    // FILTER_PERMEABLE can set the flow bit. Ground, hull and rope are excluded.
+    return flags != 0u && (flags & 7u) == 0u;
 }
 
 fn outflow_velocity(index: u32, direction: u32) -> f32 {
@@ -136,7 +140,9 @@ fn outflow_velocity(index: u32, direction: u32) -> f32 {
     let pressure_head = pressure_difference + height_difference;
     let gravity_y = -settings[1].x;
     let bernoulli_velocity = sign(pressure_head) * sqrt(-2.0 * gravity_y * abs(pressure_head));
-    return max(projected_velocity + funk * bernoulli_velocity, 0.0);
+    // The source GL driver contracts this multiply/add. Preserve its single
+    // rounding instead of a separately rounded product near pressure reversal.
+    return max(fma(funk, bernoulli_velocity, projected_velocity), 0.0);
 }
 
 @compute @workgroup_size(64, 1, 1)
@@ -149,14 +155,14 @@ fn forces(@builtin(global_invocation_id) invocation: vec3<u32>) {
     let current_mask = masks[index];
     var output_force = force_buffer[index].xy;
     var struts = current_mask.y;
+    var water_struts = current_mask.z;
     let material = materials[index];
-    if current_mask.x != 0u && (current_mask.x & 4u) == 0u && material.w != 0.0 {
+    if current_mask.x != 0u && (current_mask.x & 4u) == 0u {
         let dimensions_iterations_delta = settings[0];
         let gravity_rigidity_damping_strength = settings[1];
         let position = positions[index];
-        let b = 0.03 * dimensions_iterations_delta.z
-            / max(dimensions_iterations_delta.w, 0.00001)
-            * dimensions_iterations_delta.z;
+        let fps = settings[8].y;
+        let b = 0.03 * fps * dimensions_iterations_delta.z;
         for (var direction = 0u; direction < 8u; direction += 1u) {
             let bit = 1u << direction;
             if (struts & bit) == 0u {
@@ -187,37 +193,41 @@ fn forces(@builtin(global_invocation_id) invocation: vec3<u32>) {
 
             let shared_material = min(material, neighbor_material);
             let limit = select(shared_material.z, shared_material.y, elastic_load >= 0.0);
-            let fps = dimensions_iterations_delta.z
-                / max(dimensions_iterations_delta.w, 0.00001);
             if abs(elastic_load) > limit * gravity_rigidity_damping_strength.w
                 * dimensions_iterations_delta.z * fps
             {
                 struts &= ~bit;
+                water_struts &= ~bit;
             }
         }
 
         let wave = wave_height(position.x, settings[3].x);
-        let physics_delta = dimensions_iterations_delta.w
-            / max(dimensions_iterations_delta.z, 1.0);
+        let physics_delta = settings[8].x;
         let previous_wave = wave_height(position.x, settings[3].x - physics_delta);
-        let wave_velocity = (previous_wave - wave) * (dimensions_iterations_delta.z
-            / max(dimensions_iterations_delta.w, 0.00001))
-            / (1.0 - min(0.0, position.y / max(settings[2].w, 0.00001)));
-        let density = select(WATER, AIR, position.y >= wave);
+        let wave_velocity = (previous_wave - wave) * fps
+            / (1.0 - min(0.0, position.y / settings[2].w));
+        // Original GLSL mix uses a rounded WATER + (AIR - WATER) * factor.
+        // Selecting AIR directly loses its cancellation rounding on the source
+        // driver, which accumulates through force feedback over repeated steps.
+        let air_factor = select(0.0, 1.0, position.y >= wave);
+        let density = WATER + (AIR - WATER) * air_factor;
         let speed = position.zw + vec2<f32>(0.0, wave_velocity);
         if any(speed != vec2<f32>(0.0)) {
-            let exposed_area = select(0.01, 0.5, (current_mask.z & struts) != 255u);
+            let exposed_area = select(0.01, 0.5, water_struts != 255u);
             output_force -= normalize(speed) * 0.5 * dot(speed, speed) * density
                 * exposed_area * settings[2].x;
         }
         let gravity = vec2<f32>(0.0, -gravity_rigidity_damping_strength.x);
-        output_force -= density * settings[2].y * gravity;
-        output_force = output_force / material.w + gravity;
+        // Original FORCES contracts buoyancy subtraction and the final
+        // reciprocal-mass multiply/add independently (128 native samples).
+        output_force = fma(vec2<f32>(-density * settings[2].y), gravity, output_force);
+        let inverse_mass = 1.0 / material.w;
+        output_force = fma(output_force, vec2<f32>(inverse_mass), gravity);
     }
 
     force_buffer[index] = vec4<f32>(output_force, 0.0, 0.0);
     masks[index].y = struts;
-    masks[index].z &= struts;
+    masks[index].z = water_struts;
     masks[index].w = 0u;
 }
 
@@ -233,18 +243,37 @@ fn integrate(@builtin(global_invocation_id) invocation: vec3<u32>) {
         return;
     }
 
-    let dt = settings[0].w / max(settings[0].z, 1.0);
-    let velocity = force_buffer[index].xy * dt + positions[index].zw;
-    let inverse_speed = 1.0 / (dot(velocity, velocity) + 1.0);
+    // Source deltaT is a CPU-rounded uniform, not a shader division.
+    let dt = settings[8].x;
+    let velocity = fma(force_buffer[index].xy, vec2<f32>(dt), positions[index].zw);
+    // Original AMD OpenGL contracts the Y square into the rounded X square.
+    // Explicit order preserves measured source reflection bits on Vulkan.
+    let inverse_speed = 1.0 / (fma(velocity.y, velocity.y, velocity.x * velocity.x) + 1.0);
     let reflected_velocity = vec2<f32>(inverse_speed, -inverse_speed) * velocity;
     let displacement = velocity * dt;
-    var collision = (settings[3].y - positions[index].y) / displacement.y;
-    if collision != collision || collision < 0.0 || collision > 1.0 {
-        collision = 1.0;
+    // Source GLSL explicitly tests isnan(collision). A self-comparison in
+    // WGSL did not reproduce that branch on the tested GPU,
+    // producing NaN positions for a stationary point exactly on the floor.
+    // Every finite-input division by zero reaches source's collision=1 branch
+    // (NaN for 0/0, otherwise an infinity outside [0,1]); preserve that branch
+    // without generating an exceptional division in the first place.
+    var collision = 1.0;
+    if displacement.y != 0.0 {
+        let candidate = (settings[3].y - positions[index].y) / displacement.y;
+        let nan = (bitcast<u32>(candidate) & 0x7fffffffu) > 0x7f800000u;
+        if !nan && candidate >= 0.0 && candidate <= 1.0 { collision = candidate; }
     }
-    let integrated_velocity = mix(reflected_velocity, velocity, collision);
-    var position = integrated_velocity * dt + positions[index].xy;
-    var next_velocity = mix(reflected_velocity, velocity, f32(collision == 1.0));
+    // Preserve the source driver's difference-form interpolation even when
+    // collision is one; weighted mixing returns velocity with different bits.
+    // Row 8 Z is positive-zero bits: XOR is an identity precision barrier.
+    // It materializes the rounded reflection before subtraction, preventing
+    // Vulkan contraction of the reflection multiply into the difference.
+    // The original GL driver rounds these operations separately.
+    let integrated_velocity = fma(velocity - bitcast<vec2<f32>>(bitcast<vec2<u32>>(reflected_velocity) ^ vec2<u32>(bitcast<u32>(settings[8].z))),
+        vec2<f32>(collision), reflected_velocity);
+    var position = fma(integrated_velocity, vec2<f32>(dt), positions[index].xy);
+    var next_velocity = fma(velocity - bitcast<vec2<f32>>(bitcast<vec2<u32>>(reflected_velocity) ^ vec2<u32>(bitcast<u32>(settings[8].z))),
+        vec2<f32>(f32(collision == 1.0)), reflected_velocity);
     if position.y < settings[3].y {
         position.y = (position.y - settings[3].y) * 0.01 + settings[3].y;
         next_velocity.x *= 0.5;
@@ -277,11 +306,22 @@ fn water_fill(@builtin(global_invocation_id) invocation: vec3<u32>) {
         output_water.x = height;
     } else if (state.z & 255u) != 255u {
         let difference = height - output_water.x;
-        let gravity = max(settings[1].x, 0.0);
-        var new_velocity = sign(difference) * sqrt(2.0 * gravity * abs(difference))
-            * settings[3].z * settings[3].w * settings[4].x / 3600.0;
+        let gravity = settings[1].x;
+        // Source sets "deltaT", but this shader declares "DeltaT"; its default 1.0 remains active.
+        // Preserve the original rounded multiply chain before the fixed timestep.
+        // The uniform-zero bit barrier prevents driver reassociation, as in integration.
+        // Preserve the source f32 sqrt result before the following multiplies.
+        // Packed host bindings: settings[3].w=u_inflow, settings[4].x=u_flow.
+        let speed = bitcast<f32>(bitcast<u32>(sqrt(2.0 * gravity * abs(difference)))
+            ^ bitcast<u32>(settings[8].z));
+        let influx_velocity = bitcast<f32>(bitcast<u32>(sign(difference) * speed * settings[3].w)
+            ^ bitcast<u32>(settings[8].z));
+        let scaled_velocity = bitcast<f32>(bitcast<u32>(influx_velocity * settings[4].x)
+            ^ bitcast<u32>(settings[8].z));
+        var new_velocity = scaled_velocity * SIXTIETH;
         new_velocity = -min(-new_velocity, output_water.x);
-        output_water.x += new_velocity;
+        // Round the clamped increment before adding it to the stored amount.
+        output_water.x += bitcast<f32>(bitcast<u32>(new_velocity) ^ bitcast<u32>(settings[8].z));
     }
     water_buffer[water_index] = output_water;
 }
@@ -402,8 +442,11 @@ fn update_mass(@builtin(global_invocation_id) invocation: vec3<u32>) {
     let amount = clamp(water_buffer[index + count * 2u].x, 0.0, 1.0);
     let hull = (state.x & 2u) != 0u;
     let water_weight = select(settings[4].z, 1.0, hull);
-    let fluid_density = mix(AIR, WATER * water_weight, amount);
-    materials[index].w = mix(materials[index].x, fluid_density, settings[4].w);
+    // The original GLSL driver contracts both mix operations as a + (b-a)*t.
+    // Preserve each subtraction before the fused multiply-add.
+    let fluid_density = fma(WATER * water_weight - AIR, amount, AIR);
+    let base_mass = materials[index].x;
+    materials[index].w = fma(fluid_density - base_mass, settings[4].w, base_mass);
 }
 
 @compute @workgroup_size(64, 1, 1)

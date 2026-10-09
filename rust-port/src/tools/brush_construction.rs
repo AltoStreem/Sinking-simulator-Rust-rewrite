@@ -199,7 +199,7 @@ pub(crate) mod tests {
         log: Log,
     }
     impl BrushShip for Ship {
-        fn target(&self) -> Arc<Texture> {
+        fn target(&self) -> Arc<dyn FramebufferTarget> {
             self.log.lock().unwrap().push("ship:target".into());
             self.texture.clone()
         }
@@ -215,7 +215,7 @@ pub(crate) mod tests {
             self.log.lock().unwrap().push("ship:height".into());
             2
         }
-        fn positions(&self) -> Arc<Texture> {
+        fn positions(&self) -> Arc<dyn FramebufferTarget> {
             self.texture.clone()
         }
     }

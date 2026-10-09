@@ -1,9 +1,12 @@
 pub(super) mod break_tool;
 pub(super) mod brush_preview;
+#[cfg(test)]
+mod brush_overlay_gpu_tests;
 pub(super) mod dry_tool;
 pub(super) mod flood_tool;
 pub(super) mod move_tool;
 pub(super) mod tool;
+pub(super) mod tool_default_impls;
 mod water_brush;
 
 use crate::tools::tool::Tool;
@@ -46,3 +49,4 @@ pub(super) mod flood_tool_camera_reference;
 pub(super) mod flood_tool_free_camera_reference;
 
 pub(super) mod brush_construction;
+pub(super) mod source_brush_ship;

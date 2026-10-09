@@ -18,11 +18,11 @@ pub(crate) trait BrushBlendBackend {
 }
 /// The adapter must retain one object identity per source Ship and resolve current texture getters.
 pub(crate) trait BrushShip {
-    fn target(&self) -> Arc<Texture>;
+    fn target(&self) -> Arc<dyn FramebufferTarget>;
     fn physics_filter(&self) -> Arc<dyn FramebufferTarget>;
     fn width(&self) -> i32;
     fn height(&self) -> i32;
-    fn positions(&self) -> Arc<Texture>;
+    fn positions(&self) -> Arc<dyn FramebufferTarget>;
 }
 pub(crate) struct BrushPasses {
     pub preview: Box<dyn StatefulPass>,
@@ -167,11 +167,23 @@ impl BrushRuntime {
             }
             let passes = self.passes.clone();
             self.fbo.draw(|| {
-                ship.positions().bind_unit(0);
-                ship.target().bind_unit(1);
+                ship.positions()
+                    .texture()
+                    .expect("position texture")
+                    .bind_unit(0);
+                ship.target()
+                    .texture()
+                    .expect("brush target texture")
+                    .bind_unit(1);
                 passes.borrow_mut().action.render();
-                ship.target().unbind_unit(1);
-                ship.positions().unbind_unit(0);
+                ship.target()
+                    .texture()
+                    .expect("brush target texture")
+                    .unbind_unit(1);
+                ship.positions()
+                    .texture()
+                    .expect("position texture")
+                    .unbind_unit(0);
             });
         }
         Ok(())
@@ -214,12 +226,12 @@ mod tests {
         }
     }
     struct Ship {
-        texture: Arc<Texture>,
+        texture: Arc<dyn FramebufferTarget>,
         size: [i32; 2],
         log: Log,
     }
     impl BrushShip for Ship {
-        fn target(&self) -> Arc<Texture> {
+        fn target(&self) -> Arc<dyn FramebufferTarget> {
             self.log.lock().unwrap().push("target".into());
             self.texture.clone()
         }
@@ -235,7 +247,7 @@ mod tests {
             self.log.lock().unwrap().push("height".into());
             self.size[1]
         }
-        fn positions(&self) -> Arc<Texture> {
+        fn positions(&self) -> Arc<dyn FramebufferTarget> {
             self.log.lock().unwrap().push("positions".into());
             self.texture.clone()
         }

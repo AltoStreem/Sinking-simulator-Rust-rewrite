@@ -4662,8 +4662,16 @@ name = "sinking-simulator-bevy"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "crc32fast",
+ "flate2",
  "image",
+ "libloading",
+ "naga",
+ "rand",
+ "regex",
+ "rodio",
  "serde_json",
+ "winit",
 ]
 
 [[package]]

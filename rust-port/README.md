@@ -1,11 +1,134 @@
-# Sinking Simulator — Bevy port
+## Source editor window integration (2026-10-10)
 
-This is a playable Rust/Bevy port with a collapsible left toolbox, Ships/Physics/Graphics/Music/Performance/Advanced tabs, source-mapped day/night sky with a procedural star field, shader-gradient ocean depth, a shader-driven wave surface, ripple-distorted ship reflection, and depth-attenuated underwater effects. The Toolbox header and tab layout follow the supplied source screenshots; numeric settings are drag-editable, Graphics includes a hue/saturation/value sea-color picker, the ship browser has a searchable list, and the tool strip exposes layer and size controls. These are source-inspired recreations, not a pixel-identical ImGui skin yet. The application renders at 2554 × 1378 while keeping the full-size world and interface layout. Ships with paired `_base.png` maps retain per-texel material identities and source eight-neighbor connectivity. WGSL compute passes translate the source solver's structural forces, spring breakage, wave-relative drag and buoyancy, floor collision, hull-water ingress, eight-neighbor interior-water transfer, and water-dependent mass updates. Per-texel positions and water state are read back asynchronously for rendering and UI. The rest of the application, including some editing tools and rendering effects, is still a work in progress and is not claimed to be a complete game-parity port. Break cuts a brush-sized material-map hole and Repair restores it. Drop a PNG ship image onto the game window to import it into the searchable ship list; imported images use the port's default hull material and are saved under `assets/user_ships/`. **Mouse wheel** zooms toward the pointer, **+/-** zoom, **0** resets zoom, **right-drag** pans (or select Move and left-drag), **P** pumps, **F** adds water, **D** drains, **Space** pauses, and **R** resets. Use **1** for damage and **2** to repair near a leak.
+Source-sized editor resizing, collapse, movement, field/preview reflow and text/scroll projection are connected. 609 regular checks and GPU clipping/hover gates pass. Remaining exact UI and game parity work is recorded in [editor evidence](tools/source-editor-integration-evidence.md).
 
-Physics, Graphics, and Performance tabs expose the original game's main settings, including wave geometry, buoyancy, flow/influx, spring properties, gravity, day-cycle length, and solver controls. The Music tab plays the bundled tracks with volume control. White/unmapped material pixels remain air; keyed near-white mattes on ship art are made transparent. Ships without paired material maps use inferred/default hull physics. The underwater effect is a world-space overlay rather than the original screen-space post-processing. Steam Workshop integration and the source's layered ship editor are not ported. The adjacent SS2/decompiled/ folder now contains 217 CFR 0.152 reference files for the game and engine packages. They reconstruct the Kotlin/JVM bytecode into Java-like code, so use them as behavioral references rather than original source. The local SS2 folder contains all 125 PNGs from its ship directory, mirrored into assets/ss2_ships/; the browser lists standalone root ships and paired material-map vessels while excluding structure-building pieces. Licensed game art and soundtrack assets remain local and should not be redistributed without their rights.
+## Source UI metrics and additional original footage (2026-10-10)
 
-With a current stable Rust toolchain installed, run `cargo run` from this directory for a development build. To produce a refreshed Windows release bundle, run `build-playable.bat` from this directory; it builds the optimized executable and copies runtime assets into `playable/`, excluding the redundant `assets/original` archive. Launch `playable/Play.bat` to run the packaged build. Porting is ongoing: the Bevy application is playable, but it remains an approximation of the original game. Bevy's official quick start documents the `App`/ECS approach used here: https://bevy.org/learn/quick-start/getting-started/ and https://bevy.org/learn/quick-start/getting-started/apps/.
+Tools and layer menus now use source constructor metrics and shared pixel rectangles for rendering/input; source-scaled hover boxes, packed Classic colors and isolated popup/editor rendering are connected. Original CPU Tools/menu measurements, three Toolbox display-size probes and the additional original recording are retained. 602 regular checks, 39 GPU hover transitions and the GPU Name/Description clipping gate pass. Complete Toolbox/editor resizing, movement, focused stacking, atlas pixels and full game parity remain unfinished; existing EXEs predate this pass. See [current evidence](tools/source-ui-metrics-footage-evidence.md).
 
+## Current original-video UI and native GL pass (2026-10-09)
+
+Reproduced and corrected stale rendered hover text after hidden transitions; 39 full-game hover transitions pass. Original Classic colors, right-hand label alignment and drawn checkbox marks are connected. Native original SourceShip construction/physics/offscreen rendering/deferred cleanup now has actual-driver verification. 581 regular checks and 24 GPU gates pass; full source UI geometry/DPI and live canonical SourceShip integration remain unfinished. See [evidence](tools/original-video-ui-native-evidence.md). Steam remains excluded.
+
+# Sinking Simulator — Rust/Bevy port
+
+This is an incomplete source-based port of Sinking Simulator. The active runtime connects GPU ship geometry and physics, sky/scene/sea composition, toolbox controls, music playback, and a local ship editor with live Test Ship preview. Steam is excluded by user instruction. Full native behavior and 1:1 visual/physics parity remain unfinished.
+
+## Current status - live Ship drawing bindings 2026-10-09
+
+Current executable: `C:/Users/Alto/Desktop/Decompile/SinkingSimulator-Rust-ShipVisuals-EXE/Play.bat`. Replacement hull, strut and coverage rendering now binds fresh physics storage; per-Ship material/mesh state stays independent, and incompatible old compute groups cannot dispatch. Four original classes/eighteen methods decoded. **575 regular checks, 22 actual-GPU gates plus coverage/resize, full-game hover/DPI and eight native Windows character cases pass.** All 301 packaged assets match; the native window reaches nonzero counters and closes normally. The earlier fresh-allocation automatic sampler synchronization claim was incorrect and is corrected. CSV retains 378 mappings. Source synchronous Ship/global/list/callback/error behavior, original GL/context/GC/FBO lifetime, full font/UI and all-JAR 1:1 parity remain unfinished; Steam is excluded. See [evidence and remaining work](tools/live-ship-drawing-evidence.md).
+
+## Earlier status - original Resource queue behavior 2026-10-09
+
+Current executable: `C:/Users/Alto/Desktop/Decompile/SinkingSimulator-Rust-ResourceQueue-EXE/Play.bat`. Source cleanup now preserves throwing callbacks and follows the bundled Java 13 saved-next traversal; tail appends resume on the next frame. Seven original JVM cases/20 snapshots and actual counter NaN failure retention are checked against Rust; actual Bevy First-stage scheduling is verified. **571 regular checks and 21 GPU checks pass**, plus full-game hover/DPI and eight native Windows character cases. All 301 packaged assets match and the native window reaches nonzero live counters and closes normally. CSV retains 378 mappings. Full source synchronous Ship close/global/list/error/callback integration, native material/context lifetimes, UI/font atlas and all-JAR parity remain unfinished; Steam is excluded. See [evidence and remaining work](tools/source-resource-queue-evidence.md).
+
+## Earlier status - fresh Ship physics/model allocation 2026-10-09
+
+Current executable: `C:/Users/Alto/Desktop/Decompile/SinkingSimulator-Rust-ShipState-EXE/Play.bat`. All 301 assets match; its own native window reaches a live nonzero resource/speed title and closes normally. Reset/browser/editor Ship replacement now creates fresh physics/settings and geometry identities, while externally retained old state remains unchanged. A real GPU check preserves old one-cell position bytes across a fresh two-cell dispatch. **567 regular checks and 21 GPU checks pass**, plus full-game hover/DPI and eight Windows character cases. Full source synchronous close/global Ship/list/error/callback and native resource/material lifetime behavior remain unfinished, as do font atlas/UI and complete game/JAR parity. The original empty weak cleanup registry must not be populated automatically. CSV retains 378 rows. See [evidence and remaining work](tools/fresh-ship-allocation-evidence.md).
+
+## Earlier status - original Font and resource registry audit 2026-10-09
+
+Current executable: `C:/Users/Alto/Desktop/Decompile/SinkingSimulator-Rust-Font-EXE/Play.bat`. All 301 assets match; its own native window reaches the live Resources title, responds and closes normally. Native Fira text now uses original pixel-height sizing/line height and independent Latin advances, correcting the former 20% width difference and ligatures/kerning. Two original Font methods match 543 actual JVM cases; eight native F18 strings match source advance/line-height metrics. **566 regular checks and 20 GPU checks pass**, plus full-game hover/DPI and eight native Windows character cases. The original weak cleanup list has no ordinary bytecode producer across 12570 classes and stays empty in the original local-resource JVM probe, so automatic expiry must not be invented. CSV has 378 rows, including one explicitly partial dependency mapping. Full source ship lifecycle, font atlas/draw-list/DPI/Unicode behavior, UI/IME and all-game/JAR parity remain unfinished. See [evidence and remaining work](tools/source-font-registry-evidence.md).
+
+## Earlier status - source catalog and shared browser resources 2026-10-09
+
+Current executable: `C:/Users/Alto/Desktop/Decompile/SinkingSimulator-Rust-Catalog-EXE/Play.bat`. All 301 assets match; its own native window responds and closes normally. Actual browser publication now uses the translated Toolbox reload/cache path and Java name order. Nonblocking thumbnails share resource caches with selected ships; removed browser entries leave active physics, layers and editor resources intact. Repeated clicks reconstruct, and queued resets precede a same-frame selection. Scene resource getters refresh usage every frame. **564 regular checks pass**, plus 19 GPU checks, full-game hover/DPI and eight real Windows character cases. Full source alias/lifecycle/expiry, native UI/IME and all-game/JAR parity remain unfinished. See [evidence and remaining work](tools/live-catalog-resource-evidence.md).
+
+## Earlier status - live palette and retained ship resources 2026-10-09
+
+Current executable: `C:/Users/Alto/Desktop/Decompile/SinkingSimulator-Rust-Palette-EXE/Play.bat`. All 301 assets match. Its own native window installed the character adapter, responded and closed normally. Ship construction now uses the retained Main palette; scene/editor/browser generated textures resolve it through the source loader. Startup/layer changes retain active texture/light caches, and unsaved preview rendering survives missing catalog entries. New Ship resets to layer index 0 (correcting the earlier layer-preservation claim), while the camera is retained. **561 regular checks pass**, plus 19 GPU checks, full-game hover/DPI and eight real Windows character cases. Full source lifetimes, IME/UI and all-game/JAR parity remain unfinished. See [evidence and remaining work](tools/live-palette-resource-evidence.md).
+
+## Earlier status - native characters and ship reset 2026-10-09
+
+Current executable: `C:/Users/Alto/Desktop/Decompile/SinkingSimulator-Rust-Characters-EXE/Play.bat`. All 301 assets match source. Its native window installed the source character adapter, responded and closed normally. Native character values/order, UTF-16 search and source Shift+R cached ship/editor reset are connected. **559 regular checks pass**, plus eight original-DLL cases through a real hidden Windows window, full-game hover/DPI and **19 explicit GPU checks**. Full IME, source lifetime/capture and game/JAR parity remain unfinished. See [evidence and remaining work](tools/native-characters-reset-evidence.md).
+
+## Earlier status - editor input capture 2026-10-09
+
+Current executable: `C:/Users/Alto/Desktop/Decompile/SinkingSimulator-Rust-Capture-EXE/Play.bat`. All 301 assets match source. Its native window responded and closed normally. Source-based editor capture now reaches the camera, tools and overlapping UI; controls outside the ordinary editor remain usable. **553 regular checks pass**, plus the full-game hover/DPI check and **19 explicit GPU checks**. Full native capture, UI and game/JAR parity remain unfinished. See [capture evidence and remaining work](tools/editor-input-capture-evidence.md).
+
+## Earlier status - wave arithmetic correction 2026-10-09
+
+Current executable: `C:/Users/Alto/Desktop/Decompile/SinkingSimulator-Rust-Wave-EXE/Play.bat`. All 301 assets match. The native window launched, responded and closed normally.
+
+The previous submerged fill/mass failure is resolved in 30 exact original-GPU cases (3,840 cells). Source wave frequency rounding and weighted addition are preserved. Arrow edge smoothing now retains its screen-pixel width on resize. **547 regular checks pass; 19 explicit GPU checks pass**, including diagnostic probes. Full-game hover/DPI verification passes. Full game/JAR parity remains unfinished. See [current source evidence](tools/physics-wave-order-evidence.md).
+
+## Earlier verification pass 2026-10-09
+
+Current package: `C:/Users/Alto/Desktop/Decompile/SinkingSimulator-Rust-Verified-EXE/Play.bat`. All 301 assets match. Regular verification: **547 passed, zero failed, 42 ignored**. Explicit GPU verification: **17 passed, one failed** (new non-default submerged-water precision gate). Full-game hover switching passes at 100%/125% scaling, including threaded rendering. Native source arrow meshes and tooltip text-layout/DPI corrections are integrated. The reported stale first tooltip was not reproduced. Full game/JAR parity remains unfinished. See [verification report](tools/verification-pass-2026-10-09.md).
+
+## Earlier progress reports (historical)
+
+### Earlier status - 2026-10-09
+
+Current playable package: `C:/Users/Alto/Desktop/Decompile/SinkingSimulator-Rust-Hover-EXE/Play.bat`.
+It includes the hover fixes and earlier physics correction; startup and normal
+closure were checked and all 301 assets match.
+
+Hover descriptions checked against source. Source wording/delay are retained;
+classic tooltip colors/border, source mouse placement and ordinary editor-window
+occlusion are corrected. Six original-JVM placement snapshots match. Latest
+regular suite: **546 passed, zero failed, 38 ignored**. The conversion CSV has
+updated GUIKt, Toolbox, ShipUpload and ShipPhysics status, retaining all 377 mappings.
+Exact native font/layout/capture and full UI parity remain unfinished. See
+[hover evidence](tools/ui-hover-descriptions-source-evidence.md).
+
+
+Current playable package: `C:/Users/Alto/Desktop/Decompile/SinkingSimulator-Rust-Physics-EXE/Play.bat`.
+The refreshed release starts and closes normally; all 301 assets match source.
+
+Latest physics correction preserves the source-rounded reflection before
+interpolation subtraction. **544 regular checks pass, zero fail, 38 are ignored**.
+Explicit physics GPU checks: **15 pass, one fails**. Exact integration and all six
+120-frame original-driver workload gates now pass; every workload has zero
+position/velocity error. The remaining explicit failure is exact water fill/mass.
+Complete game and all-JAR parity remain unfinished. See
+[rounded reflection evidence](tools/physics-rounded-reflection-source-evidence.md).
+
+
+Fresh playable Windows package: `C:/Users/Alto/Desktop/Decompile/SinkingSimulator-Rust-UI-EXE/Play.bat`.
+Includes current editor changes, matching assets and measured source reflection
+arithmetic. Native startup and normal closure were checked. Current regular suite:
+**544 passed, zero failed, 37 ignored**. Explicit physics GPU suite: **12 passed,
+three failed**. Reflection intermediates match exactly, but full integration,
+combined fill/mass and prolonged exposed-motion gates still fail. See
+[build and reflection evidence](tools/playable-reflection-source-evidence-2026-10-09.md).
+
+Latest UI check: **544 passed, zero failed, 36 ignored**. Description scrollbar
+track/thumb sprites, seeking, outside dragging and release are connected;
+rounded drawing, wheel routing and full capture parity remain pending. See
+[scrollbar evidence](tools/ui-description-scrollbar-source-evidence.md). Description child
+scroll targets are connected with source frame timing, previous-content sizing
+and scrollbar reservation; two field-clipping GPU cases pass. Track/thumb
+wheel routing and locks remain pending. See
+[child scrolling evidence](tools/ui-description-child-source-evidence.md). Original-JVM window
+scroll-target snapshots match the Rust numeric model, and negative pointer
+rounding now preserves the source's integer conversion. See
+[window scrolling evidence](tools/ui-window-scroll-source-evidence.md). Caret-follow field
+scrolling and clipped text cameras are connected; a separate GPU check passed
+all 4096 fixture pixel comparisons. See [scrolling evidence](tools/ui-text-scroll-source-evidence.md).
+Source mouse pairing
+now drives native editor double-click selection, release locking and pointer
+quantization; active keyboard entry no longer needs a pointer position. See
+[mouse evidence](tools/ui-double-click-source-evidence.md). Ship-editor clipboard
+shortcuts and grouped paste now follow the bundled source; see
+[clipboard evidence](tools/ui-clipboard-source-evidence.md). Full rendered UI,
+native clipboard round trips, source DPI/window geometry and text scrolling
+remain unverified or unfinished. The existing EXE package predates these UI
+increments. Historical subsystem counts below describe their earlier runs.
+
+See [the priority review](tools/port-priority-review-2026-10-08.md) for the current work order and carefully qualified readiness estimates, and [conversion_inventory.csv](conversion_inventory.csv) for per-class mappings and remaining gaps. All custom non-Steam game/engine classes have mappings; this does not establish completed behavior or conversion of all bundled dependency/JVM classes.
+
+Latest regular suite: **502 passed, zero failed, 35 ignored**. Source CPU timing uniforms now remove two isolated integration differences and reduce the exposed-motion error; remaining reflection/fill/coupled mismatches are documented in [timing evidence](tools/physics-cpu-timing-source-evidence.md). See the [current UI conversion audit](tools/ui-conversion-audit-2026-10-08.md) for connected controls, verified behavior and remaining native layout/input gaps. Source force feedback now has 128 identical-input bitwise GPU comparisons, and collision interpolation explicitly preserves the measured source difference form. The original isolated integration check found five one-bit lane differences, now reduced to three after CPU timing preservation; see [integration evidence](tools/physics-integration-rounding-source-evidence.md) and [force feedback evidence](tools/physics-force-feedback-source-evidence.md). The production mass interpolation now matches 128 identical-input original-GPU samples bit for bit; the combined fill probe still has seven water rounding differences. See [mass interpolation evidence](tools/physics-mass-interpolation-source-evidence.md). Eight existing explicit physics/water GPU checks pass. The new persistent original-driver comparison executes six 120-frame workloads at the source default 50/5 schedule: five match after source fused flow rounding was restored; exposed coupled motion still fails strict tolerances. See [flow contraction and checkpoint evidence](tools/physics-flow-contraction-source-evidence.md). See [persistent GPU evidence](tools/physics-persistent-original-driver-source-evidence.md). Production density interpolation, reciprocal-multiply force arithmetic and the fill constant now preserve source rounding/order; earlier stationary air-balanced expectations were corrected. Original ground-flow eligibility is also corrected; see [stencil evidence](tools/physics-water-stencil-correction-source-evidence.md). These results do not certify full physics parity. All twelve explicit native audio checks passed. Live Windows music now uses the source default-device singleton and global ALContext in the shared application resource registry, with worker join before AppExit cleanup; see [resource graph evidence](tools/native-audio-graph-source-evidence.md). Live Windows contexts now initialize the source AL/ALC capability tables with context-ID feature queries, process/thread selection and failed-constructor publication; see [native context evidence](tools/native-context-capability-source-evidence.md). Native committed Unicode text reaches source callbacks, search and editor fields; see [text evidence](tools/window-ime-character-source-evidence.md). Ordered native camera, Ship/Move and brush input are connected; see [tool input evidence](tools/window-world-move-source-evidence.md). Preview/action share retained uniforms and source normalization arithmetic. Brush blends over a byte-quantized source-RGB SeaFrame before display conversion; GUI uses source RGB/alpha blend factors and encoded texture/tint arithmetic. Windows static RGBA8 textures now use the source OpenGL mip operation implemented in Rust. Explicit Bevy GPU readbacks match all 720,488 retained icon mip bytes exactly on the local Radeon driver; see [icon mip evidence](tools/gui-icon-source-mip-evidence.md). Dynamic framebuffer mip rounding and other drivers remain unverified. The 15 physics and four enclosed-water cases were rerun successfully. New repeated GPU checks verify 120-frame integration and four 120-frame water workloads at default 50/5 step counts, with exact pass counts and conservation; see [repeated physics evidence](tools/physics-water-repeated-source-evidence.md). Earlier GPU runs also verify seven hull-coverage cases. These controlled checks do not prove full game parity.
+
+Run `cargo run` for development, or `build-playable.bat` to refresh `playable/` and launch its `Play.bat`. Existing packaged copies predate recent source corrections. Keep the original local assets available. The detailed sections below are chronological historical records and may contain obsolete counts or descriptions; they are not the current completion status.
+
+The latest user-requested Windows package is Desktop Decompile `SinkingSimulator-Rust-EXE`; use its `Play.bat`. Its optimized build succeeded in 43.97 seconds and includes GUI compositing/texture corrections, but predates the subsequent native OpenGL mip correction. This package has not had a new startup check. This does not establish full game parity.
+
+GUI RGB now composites in encoded space on native window cameras. Its transparent sprite and mesh pipelines use the recovered bundled ImGui backend's source alpha factors, tint multiplication and vertex color arithmetic. GUI sprite texture views preserve encoded hardware filtering and world image isolation. Actual GPU tint/filter/gradient checks pass in three fixtures, including the native mip correction; see [GUI texture evidence](tools/gui-source-texture-evidence.md). All 15 original PNG icon mip chains match the local original OpenGL readbacks exactly. Font coverage, complete editor pixels and full original-runtime comparison remain unfinished. Latest full regression suite: 496 passed, zero failed, fifteen ignored (4.28 seconds). A [partial dependency behavior inventory](tools/dependency-behavior-inventory.csv) records the recovered bundled backend behavior; it is not a complete all-JAR inventory.
+
+The active sea color picker now uses the recovered bundled GUI drawing operations: ordered white/hue and transparent/black quads, six continuous hue segments, square alpha checks and packed byte colors. Geometry checks and three-case actual GPU sampling passed; see [picker evidence](tools/gui-picker-source-evidence.md). Pointer last-pixel normalization, source HSV arithmetic/cache rules, epsilon-preserving RGB edits and rounded/inset marker positions are now connected; see [picker input evidence](tools/gui-picker-input-source-evidence.md). Source-native layout, full interaction/popups/navigation, cursor/border drawing and original-window pixel comparison remain unfinished.
+
+Concrete Windows OpenAL device/source interfaces now call the original supplied native library in Rust. Muted PCM states, seeking, queue draining and deferred cleanup are checked; see [native audio evidence](tools/native-openal-source-evidence.md). The original supplied STB Vorbis decoder is now connected to the translated ALBuffer methods: all ten tracks match exactly between file and memory decoding and upload through native OpenAL, with buffer metadata and cleanup checks. The old LWJGL core DLL requires a JVM during thread detach, so its stdlib bridge is replaced with matched Windows CRT allocation/free; configurable jemalloc/debug behavior remains incomplete. See [decoder evidence](tools/native-vorbis-source-evidence.md). Native C libraries themselves are not rewritten in Rust. Windows now uses the translated native playlist and ALSource runtime, with original update-before-UI ordering; see [live music evidence](tools/native-music-live-source-evidence.md). Soundtrack buffers now load in the background, publish as a complete map, and resolve the actual current Main player; early controls and shutdown during loading are checked. See [background loading evidence](tools/native-music-async-source-evidence.md). Exact coroutine scheduling/JVM visibility, context capabilities and audible parity remain unfinished.
 
 ## Rendering conversion progress (2026-10-06)
 
@@ -18,7 +141,7 @@ Current verification: 45 tests pass; `default_ship_solver_does_not_tear_without_
 
 ## Music conversion progress (2026-10-06)
 
-`src/music_player.rs` now contains the translated playlist state and Bevy audio adapter. It discovers Ogg tracks recursively, collapses duplicate track names, follows Java HashMap bucket ordering for the bundled track list, removes each selected track from the queue, supports shuffle, refills the queue when repeat is enabled, and pauses when a non-repeating queue is exhausted. Finished tracks advance automatically. The source Main's initially empty player starts paused; press the play icon to begin.
+`src/music_player.rs` now contains the translated playlist state and Bevy audio adapter. It discovers Ogg tracks recursively, collapses duplicate track names, follows Java HashMap bucket ordering for the bundled track list, removes each selected track from the queue, supports shuffle, refills the queue when repeat is enabled, and pauses when a non-repeating queue is exhausted. Finished tracks advance automatically. The source Main creates an unpaused empty player, sets volume to 0.25, then starts playback after publishing loaded tracks. The current startup code already preserves this; the previous paused-startup note was stale.
 
 Volume changes and pause/resume now act on the existing AudioSink instead of recreating the track. The original shuffle, repeat, play/pause, and next icons are connected. The playback-position bar seeks within the selected track. Decoder duration calculations run on a background task and are cached. The UI remains a Bevy recreation rather than the original ImGui layout, and actual audible playback/seeking still needs a runtime comparison.
 
@@ -469,7 +592,7 @@ Added al_device.rs, al_context.rs, al_context_start_reference.rs and al_util_kt.
 
 ALContext preserves a process-global current pointer, native make-current before pointer assignment, stop clearing whichever context is current, capability initialization only while alcCapabilities is absent, source ALC.createCapabilities(context ID) argument, and AL creation using the same ALC capability object. Cleanup destroys the context without clearing current. Late-initialized capability getters, setters and the separate mutable property reference are translated. Error checking consumes one AL error and maps all five named errors plus unknown numeric errors to exact source strings.
 
-Checks cover class initialization and default identity, cross-thread global context access, capability identity/order, manually supplied ALC capabilities skipping AL initialization, late-property failures, context-before-device cleanup, null names/zero IDs, closed-default reuse and exact AL error messages. Concrete OpenAL/Bevy backend integration is pending; active music still uses the existing audio adapter. Rust mutexes/typed setters alter Java race/type-cast/exception semantics, and reflection owner is represented by its class name rather than a Kotlin KDeclarationContainer. Per-backend AlDeviceClass values model loaded-class state for checks; native code uses the global class accessor. This is not complete audio or 1:1 game parity.
+Checks cover class initialization and default identity, cross-thread global context access, capability identity/order, manually supplied ALC capabilities skipping AL initialization, late-property failures, context-before-device cleanup, null names/zero IDs, closed-default reuse and exact AL error messages. The original OpenAL DLL now implements the device/source/buffer/context backends, and live Windows music initializes native capability tables. Live ALContext/default-device identity and the shared application resource graph are connected and natively checked. Coroutine registration/free ordering, failure/race semantics and ICD dispatch remain pending; see [resource graph evidence](tools/native-audio-graph-source-evidence.md) and [context evidence](tools/native-context-capability-source-evidence.md). Rust mutexes/typed setters alter Java race/type-cast/exception semantics, and reflection owner is represented by its class name rather than a Kotlin KDeclarationContainer. Per-backend AlDeviceClass values model loaded-class state for checks; native code uses the global class accessor. This is not complete audio or 1:1 game parity.
 
 ### ALBuffer and ALSource conversions
 
@@ -477,7 +600,7 @@ Added separate al_buffer.rs and al_source.rs. ALBuffer preserves generation befo
 
 ALSource preserves native ID-only buffer attachment, ordered batch queues including duplicate and empty arrays, processed-count requery after each unqueue, playback controls, state comparisons, sample/seconds offsets, volume and deferred deletion. Values are forwarded without added clamping or finite checks. Buffer attachment/queueing does not create resource dependencies; closing a buffer does not close a source. Three checks cover decode formats/order, case/arithmetic metadata, and distinct-ID queue/control/lifetime behavior.
 
-Concrete STB/Vorbis decoding and OpenAL playback backends remain unconverted; active music still uses its existing adapter. Native direct/short buffer views and allocation identity, JVM stack-failure/type/exception semantics and concurrency remain pending. Native PCM free is an explicit backend operation; the Rust sample Vec additionally owns its adapter copy. These tests prove translated operation contracts, not actual audio backend equivalence or complete 1:1 game parity.
+The initial contract-only work described here is now supplemented by concrete original STB Vorbis decoding and OpenAL buffer upload; see [native decoder evidence](tools/native-vorbis-source-evidence.md). Windows active music now uses the translated native runtime; non-Windows retains the Bevy adapter. Native direct/short buffer views and allocation identity, configurable allocators, JVM stack-failure/type/exception semantics and concurrency remain pending. Native PCM free is an explicit backend operation; the Rust sample Vec additionally owns its adapter copy. Contract checks and native soundtrack checks do not establish complete audio or 1:1 game parity.
 
 ### MusicPlayer source audio behavior and startup correction
 
@@ -485,7 +608,7 @@ SourceMusicPlayer now uses the converted ALSource operation contract, retaining 
 
 Separate music_player_volume_reference.rs and music_player_progress_reference.rs translate the two drawUI property references. Three new checks cover constructor/native operation order, pause state queries, missing buffers, shared-map population, repeat exhaustion, shuffle removal, automatic progression, numeric conversion and active startup. Nine music checks pass. Full suite: 188 passed, one retained failure in titanic_cpu_solver_does_not_tear_without_user_damage (hull deformation 20.579636). That CPU solver failure is unresolved.
 
-The active game still uses the Bevy music adapter. Source icon loading/configuration, exact Kotlin RNG sequence, UI drawing, native OpenAL/Vorbis integration and JVM reflection/exception behavior remain pending. Backend-contract checks do not establish actual audio equivalence or full game parity.
+The Windows game now uses the translated native audio adapter; non-Windows still uses Bevy. Source icon loading/configuration, exact Kotlin RNG sequence, UI drawing, native OpenAL/Vorbis integration and JVM reflection/exception behavior remain pending. Backend-contract checks do not establish actual audio equivalence or full game parity.
 
 ### Additional user-supplied reverse engineering references
 
@@ -575,7 +698,7 @@ Four added checks cover signed/unrestricted setters, defaults, getter/component 
 
 Inspected the supplied glm Vec2.class and Vec4.class with CFR, and the original GameParameterProvider hash/equals bytecode. Added explicit equals/hash_code methods to SourceGameParameterProvider. Scalar floats use canonical Float.floatToIntBits for Float.compare equality and hashing; glm vector equality uses primitive component comparisons. Source object self-identity short-circuits equality, while equal vector references do not shortcut glm NaN comparisons. Wrapping i32 arithmetic preserves Java overflow. The original glm signed-zero equality/hash inconsistency is intentionally retained, and the Rust object does not implement Eq/Hash with stronger guarantees.
 
-A small JVM oracle invokes the unmodified classes in sinkingsimulator-4.0-all.jar without requiring a Java compiler. Its bytecode and output are local evidence under /Decompile/vector-reference. Original default hash=-975189733; scalar NaN hash=-1642084069; scalar negative-zero hash=1172293915 versus positive-zero=-975189733; vector negative-zero hash=-67122917 versus positive-zero=2080360731. Rust checks reproduce those values and the JVM equality results. CFR references for glm vectors are supporting evidence, not a completed conversion of the entire glm library. Parameter toString/Java float formatting and JVM null/reflection ABI remain pending.
+A small JVM oracle invokes the unmodified classes in sinkingsimulator-4.0-all.jar without requiring a Java compiler. Its bytecode and output are local evidence under C:/Users/Alto/Desktop/Decompile/vector-reference. Original default hash=-975189733; scalar NaN hash=-1642084069; scalar negative-zero hash=1172293915 versus positive-zero=-975189733; vector negative-zero hash=-67122917 versus positive-zero=2080360731. Rust checks reproduce those values and the JVM equality results. CFR references for glm vectors are supporting evidence, not a completed conversion of the entire glm library. Parameter toString/Java float formatting and JVM null/reflection ABI remain pending.
 
 Created src/gui_kt.rs for the missing GUIKt.java. GuiKt retains tool-list/font references, default scale/index, late-initialized getters, nullable synthetic assignments/list entries and signed index failures. Its description method gets the item ID, initializes its timestamp only when absent, checks hover with zero flags, uses a strict greater-than-300-ms delay, and resets timestamps while not hovered. Tooltip wrapping is fontSize*35; text flags/end defaults are preserved. Nested source_finally operations execute pop/end cleanup on backend panics, including failure boundaries before each guard is entered.
 
@@ -619,7 +742,7 @@ Full verification of this increment: 228 passed; one unchanged Titanic CPU hull-
 
 ### Original Toolbox size callback
 
-Decompiled Toolbox$render$3.class into local reference evidence under /Decompile/toolbox-reference and added its separate Rust implementation in src/toolbox_render_3.rs. The callback captures padding by value and toolsHeight by a shared mutable reference, reads display and position, subtracts padding and live tool height in source order, then clamps only oversized desired components. Inspection of the bundled glm Vec2 constructor proved default mask 2 copies x into y: both minimum bounds are 50*GUI scale. glm max delegates to Java Math.max; the Rust helper preserves NaN propagation and signed-zero behavior. Native callback registration and complete Toolbox rendering remain unimplemented.
+Decompiled Toolbox$render$3.class into local reference evidence under C:/Users/Alto/Desktop/Decompile/toolbox-reference and added its separate Rust implementation in src/toolbox_render_3.rs. The callback captures padding by value and toolsHeight by a shared mutable reference, reads display and position, subtracts padding and live tool height in source order, then clamps only oversized desired components. Inspection of the bundled glm Vec2 constructor proved default mask 2 copies x into y: both minimum bounds are 50*GUI scale. glm max delegates to Java Math.max; the Rust helper preserves NaN propagation and signed-zero behavior. Native callback registration and complete Toolbox rendering remain unimplemented.
 
 Final verification including the size callback: 13 focused Toolbox checks pass; full suite 230 passed and one unchanged Titanic CPU hull-deformation failure (20.579636). This evidence does not establish complete game parity.
 
@@ -629,7 +752,7 @@ Added src/toolbox_ship_browser.rs for the original ShipScroll contents. SourceTo
 
 Selection reads the global Ship, closes it, reads the global Ship again to get its camera controller, constructs from the selected retained thumbnail, publishes the replacement, clears the list, reads the global Ship once more and adds that exact object. Construction failure stops before publication/list mutation/tooltip. The required BrowserThumbnail/BrowserBackend/BrowserShipOperations contracts expose all operations without default no-ops. They do not yet provide native Ship/ImGui/texture-size/tooltip adapters or register the child window and complete outer Toolbox render.
 
-Decompiled the bundled Kotlin CharsKt__CharKt.class to confirm its ignore-case algorithm compares original UTF-16 units, then original uppercase units, then original lowercase units (not expanded Rust Unicode lowercase strings). A small assembled CharacterOracle.class was executed against the supplied SS2/jre to capture upper/lower for all 65,536 BMP units. Evidence lives in /Decompile/toolbox-reference/character-mappings.txt. src/jvm_character.rs contains the sparse mappings and corresponding Kotlin search semantics. This reproduces the bundled runtime's Unicode version, handles unpaired surrogates, and intentionally does not case-fold supplementary characters as code points. This is supporting Java Character/Kotlin text behavior, not a claim that their entire library classes have been converted.
+Decompiled the bundled Kotlin CharsKt__CharKt.class to confirm its ignore-case algorithm compares original UTF-16 units, then original uppercase units, then original lowercase units (not expanded Rust Unicode lowercase strings). A small assembled CharacterOracle.class was executed against the supplied SS2/jre to capture upper/lower for all 65,536 BMP units. Evidence lives in C:/Users/Alto/Desktop/Decompile/toolbox-reference/character-mappings.txt. src/jvm_character.rs contains the sparse mappings and corresponding Kotlin search semantics. This reproduces the bundled runtime's Unicode version, handles unpaired surrogates, and intentionally does not case-fold supplementary characters as code points. This is supporting Java Character/Kotlin text behavior, not a claim that their entire library classes have been converted.
 
 Five added checks cover every captured BMP mapping, special UTF-16 case behavior, eager filter/draw/default argument order, shared filter replacement and missing NUL failure, live global getter/controller/list identity after close and failed construction boundaries. Sixteen focused Toolbox checks and two character checks pass. Full suite: 235 passed; one unchanged Titanic CPU hull-deformation failure (20.579636). The mapping oracle check currently reads the local captured evidence path, which is not a portable packaged test fixture. File reload and constructor coroutine, other Toolbox pages/editor/upload, native bridge/Bevy integration and full game/JAR parity remain pending. No playable rebuild was made.
 
@@ -639,7 +762,7 @@ Decompiled the supplied dslfix.class and added src/dslfix.rs as its dedicated Ru
 
 The translated Toolbox browser now calls these geometry helpers directly, removing its backend placeholder sizing and centering operations. Its recording checks exercise the actual helper with explicit padding, including the resulting 194x44 thumbnail and x=400 centering. Sixteen focused Toolbox checks pass and the current optimized release compiled successfully. No new independent dslfix geometry/tab fixture suite was added in this build increment.
 
-At the user's request, refreshed the playable Windows build at /Decompile/SinkingSimulator-Rust-Playable. The executable SHA256 is 9A43B46CC1838C6F04ED65FFE8161A8477A25487C6C098BDEB175D6651D0CF1D. All 293 runtime assets were copied and hash-verified; Play.bat sets the package working directory before starting the executable. A hidden startup process ran and responded, with only a controller mapping warning and no logged asset/shader/panic errors, then was stopped. build-info.json records the evidence. Interactive gameplay and visual parity were not verified. The full prior suite remains 235 passed with one CPU Titanic deformation failure; full 1:1 conversion and native GUI integration remain active and incomplete.
+At the user's request, refreshed the playable Windows build at C:/Users/Alto/Desktop/Decompile/SinkingSimulator-Rust-Playable. The executable SHA256 is 9A43B46CC1838C6F04ED65FFE8161A8477A25487C6C098BDEB175D6651D0CF1D. All 293 runtime assets were copied and hash-verified; Play.bat sets the package working directory before starting the executable. A hidden startup process ran and responded, with only a controller mapping warning and no logged asset/shader/panic errors, then was stopped. build-info.json records the evidence. Interactive gameplay and visual parity were not verified. The full prior suite remains 235 passed with one CPU Titanic deformation failure; full 1:1 conversion and native GUI integration remain active and incomplete.
 
 ### Toolbox reloadFiles algorithm and synthetic predicate/comparator
 
@@ -667,4 +790,111 @@ Fixed the retained CPU solver failure without modifying or weakening titanic_cpu
 
 The previously failing Titanic check now passes. Added a separate formula check for timestep/iteration scaling, effective mass, damping and rope softness. Full suite: 246 passed, zero failed. Source parity remains incomplete: this corrects the coarse CPU fallback; the normal playable game runs the existing per-texel GPU solver, whose spring formula was already source-scaled and was not changed in this fix. Whole-game physics stability/visual parity are not proven by the CPU regression.
 
-Built a new optimized playable package at /Decompile/SinkingSimulator-Rust-Playable-Fixed with all 293 runtime assets hash-verified. Executable SHA256 E0B6D5756D031FCCBBD05268B8A0FB5033B5DABBE63612EE27D405DE77AABDB4. A separate hidden startup process ran and responded without logged asset/shader/panic errors and was stopped; the user's running earlier package was left running. Play.bat launches the fixed package. build-info.json records build/test/startup evidence. The broader conversion goal remains active; Toolbox constructor/coroutine work was interrupted by the user's urgent physics fix request and has not been claimed complete.
+Built a new optimized playable package at C:/Users/Alto/Desktop/Decompile/SinkingSimulator-Rust-Playable-Fixed with all 293 runtime assets hash-verified. Executable SHA256 E0B6D5756D031FCCBBD05268B8A0FB5033B5DABBE63612EE27D405DE77AABDB4. A separate hidden startup process ran and responded without logged asset/shader/panic errors and was stopped; the user's running earlier package was left running. Play.bat launches the fixed package. build-info.json records build/test/startup evidence. The broader conversion goal remains active; Toolbox constructor/coroutine work was interrupted by the user's urgent physics fix request and has not been claimed complete.
+
+## First-party JAR class coverage audit (2026-10-07)
+
+`tools/first-party-jar-class-coverage.csv` enumerates the 388 `com/wicpar/{engine,sinkingsimulator}` class entries in `sinkingsimulator-4.0-all.jar`. It maps 262 entries directly to ledger references and 106 compiler-generated/nested entries to their parent reference; these mappings establish traceability, not independent behavioral verification. Twenty Steam class entries are explicitly excluded per the user's instruction. The full fat JAR contains 12,570 class entries, including bundled third-party libraries and test/runtime code; that broader dependency archive is not converted by this game/engine ledger. Full conversion and 1:1 runtime parity remain incomplete.
+
+
+## UI conversion check and keyboard editing (2026-10-09)
+
+The UI remains partially converted. See tools/ui-conversion-audit-2026-10-08.md
+for source comparisons, connected controls and outstanding font/DPI/window gaps.
+The live ship editor now uses a partial bundled TextEditState translation for
+UTF-16 horizontal cursor/selection editing, word commands, deletion, replacement
+and description newline input. Character input precedes keyboard commands as in
+the source. Five model checks and the extended native-message editor check pass;
+full release regression: 507 passed, zero failed, 35 ignored. Caret/selection
+rendering, mouse positioning, vertical navigation, clipboard, bounded undo and
+native focus/cancel behavior remain unfinished. This does not establish 1:1 UI
+or full game parity. Existing EXE packages predate this source increment.
+
+
+### Bounded editor undo storage (2026-10-09)
+
+The live editor now retains the bundled 99-record/999-UTF-16-unit undo storage
+through src/text_edit_undo.rs. Allocation, eviction, compaction and redo flushing
+are translated; undo/redo application and shortcuts remain pending original VM
+verification. See tools/ui-undo-storage-source-evidence.md. Four storage checks
+pass; full release regression: 511 passed, zero failed, 35 ignored. Existing
+packages have not been rebuilt for this source increment. Full UI parity remains
+incomplete.
+
+
+### Original VM undo/redo application verification (2026-10-09)
+
+Original JAR execution confirms typed abc -> undo logical ab -> redo logical a,
+with cursor 2 and physical backing ab remaining. UndoState application and a
+physical UTF-16 EditBuffer now preserve this behavior in Rust. The active editor
+has not yet migrated to that backing model; undo shortcuts remain pending.
+Original VM also confirms the 256th insertion throws on its terminator write,
+which the live logical-Vec editor currently does not reproduce. See
+ tools/ui-undo-application-source-evidence.md for evidence and limitations.
+Full release regression: 513 passed, zero failed, 35 ignored. No EXE rebuild.
+
+
+### Live backing-buffer/undo integration (2026-10-09)
+
+The active ship editor now uses the physical source buffer model and Ctrl+Z/Y
+undo/redo. It preserves separately retained logical lengths, cursor and raw
+publication state, including the source's verified unusual redo result. The
+source 256th-unit terminator exception is represented as an explicit error;
+full source Throwable handling/recovery remains pending. Original JVM execution
+of the source strncpy primitive confirms publication leaves ab after the abc /
+undo / redo sequence despite logical length 1. See
+ tools/ui-live-undo-source-evidence.md. Final release regression: 514 passed,
+zero failed, 35 ignored. UI parity remains partial; no executable rebuild.
+
+
+### Editor focus/cancellation conversion (2026-10-09)
+
+The live editor now has optional text focus, field-click activation and outside-
+click release. Escape restores activation-time UTF-16 text and deactivates the
+field without closing ShipUpload. Single-line Enter/description Ctrl+Enter
+publish and deactivate; plain description Enter inserts newline. Inactive text
+is drained without changing fields. Source active-ID/navigation/mouse caret and
+font/DPI integration remain incomplete. See
+ tools/ui-focus-cancel-source-evidence.md. Final release regression: 515 passed,
+zero failed, 35 ignored. No EXE rebuild; whole UI/game parity remains partial.
+
+
+### Source glyph caret/mouse selection conversion (2026-10-09)
+
+Original JVM/native FontAtlas execution captured FiraSans F18 advance bits;
+original locateCoord execution verified eight two-line caret cases. The live
+editor now uses the translated source row/midpoint rules for field clicks and
+mouse selection dragging, with Ctrl-click select-all and Shift-click extension.
+Editor fields now use source18px sizing/padding. See
+ tools/ui-glyph-caret-source-evidence.md and
+ tools/source-font-18-advance-capture.json. Final release regression: 519 passed,
+zero failed, 35 ignored. DPI, glyph shaping/rasterization, visible caret/selection,
+vertical navigation and complete native widget behavior remain unfinished.
+No EXE rebuild or whole UI parity certification.
+
+
+### Source vertical caret conversion (2026-10-09)
+
+Description Up/Down and Shift navigation now use source glyph widths and
+preferred-X rules. Sixteen original JVM snapshots verify cursor, selection
+endpoints, preferred-X flag and raw float bits, including end-of-text and
+selection-collapse behavior. Native keyboard integration checks cover movement
+across short/wide lines and Shift selection. See
+ tools/ui-vertical-caret-source-evidence.md and
+ tools/source-vertical-caret-capture.json. Final release regression: 520 passed,
+zero failed, 35 ignored. Ctrl-arrow child scrolling, visible caret/selection,
+DPI, clipboard and complete native widget parity remain unfinished. No EXE
+rebuild or full UI/game/JAR parity certification.
+
+
+### Caret/selection visual adapter and widget mouse correction (2026-10-09)
+
+Caret blink and clipped per-line selection overlays are now connected to the
+editor content renderer. The source widget's mouse drag retains the caret
+anchor while changing selection endpoints; this corrects the earlier live use
+of the low-level drag helper. Shift-click follows ordinary click behavior and
+Ctrl-click select-all locks until release. See
+ tools/ui-caret-selection-visual-source-evidence.md. Final release regression:
+524 passed, zero failed,35 ignored. Original line antialiasing, child scrolling,
+DPI/font output and complete visual/native widget parity remain unverified or
+unfinished. No EXE rebuild or whole UI screenshot certification.

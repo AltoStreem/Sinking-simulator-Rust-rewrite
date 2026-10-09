@@ -12,7 +12,7 @@ impl GlResource {
     pub fn from_current(
         id: i32,
         runtime: &ResourceRuntime,
-        free: impl FnOnce() + Send + 'static,
+        free: impl Fn() + Send + Sync + 'static,
     ) -> Self {
         let context = crate::gl_context::GlContext::current();
         let mut resource = Self::new(id, context.resource(), runtime, free);
@@ -23,7 +23,7 @@ impl GlResource {
         id: i32,
         context: ResourceHandle,
         runtime: &ResourceRuntime,
-        free: impl FnOnce() + Send + 'static,
+        free: impl Fn() + Send + Sync + 'static,
     ) -> Self {
         let lifetime = runtime.allocate(&[context.clone()], free);
         Self {
@@ -35,6 +35,9 @@ impl GlResource {
     }
     pub fn id(&self) -> i32 {
         self.id
+    }
+    pub(crate) fn resource_handle(&self) -> ResourceHandle {
+        self.lifetime.clone()
     }
     pub fn register_dependent(&self, dependent: &ResourceHandle) {
         self.lifetime.register_dependent(dependent);

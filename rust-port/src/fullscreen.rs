@@ -11,6 +11,29 @@ impl Fullscreen {
             .expect("source fullscreen geometry")
             .into_mesh()
     }
+    #[allow(dead_code, clippy::too_many_arguments)]
+    pub fn source(
+        shader: std::sync::Arc<dyn crate::shaded_model::ModelProgram>,
+        buffer_backend: std::sync::Arc<std::sync::Mutex<dyn crate::vbo::BufferBackend>>,
+        vao_backend: std::sync::Arc<std::sync::Mutex<dyn crate::vao::VertexArrayBackend>>,
+        backend: std::sync::Arc<std::sync::Mutex<dyn crate::model::ModelBackend>>,
+        context: crate::resource::ResourceHandle,
+        runtime: &crate::resource::ResourceRuntime,
+    ) -> crate::uv_model::SourceUVModel {
+        crate::uv_model::SourceUVModel::from_arrays(
+            &[0, 1, 2, 0, 2, 3],
+            &Self::VERTICES,
+            2,
+            &Self::UVS,
+            shader,
+            4,
+            buffer_backend,
+            vao_backend,
+            backend,
+            context,
+            runtime,
+        )
+    }
     /// Fit the source clip-space quad into the orthographic world rectangle.
     /// Flip UV Y for Bevy's top-left image convention when sampling pass maps.
     pub fn fit(mesh: &mut Mesh, area: Rect) {

@@ -35,6 +35,14 @@ impl VideoMode {
             refresh.unwrap_or(self.refresh),
         )
     }
+    /// Kotlin `Monitor.VideoMode.toString()` with the original JOML Vector2i spelling.
+    pub fn source_to_string(&self) -> String {
+        let [width, height] = *self.size.lock().unwrap();
+        format!(
+            "VideoMode(size=({width} {height}), r={}, g={}, b={}, refresh={})",
+            self.r, self.g, self.b, self.refresh,
+        )
+    }
     pub fn java_hash(&self) -> i32 {
         let [x, y] = *self.size.lock().unwrap();
         let mut hash = 31_i32.wrapping_add(x).wrapping_mul(31).wrapping_add(y);

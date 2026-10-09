@@ -41,3 +41,8 @@ impl DataTexture {
 pub(crate) trait GlDataHolder {
     fn texture(&self) -> &DataTexture;
 }
+
+/// Native GLDataHolder getter retains the original Texture2D object.
+pub(crate) trait SourceGlDataHolder {
+    fn source_texture(&self) -> std::sync::Arc<crate::texture_2d::SourceTexture2D>;
+}

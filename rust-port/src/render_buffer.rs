@@ -87,3 +87,14 @@ impl crate::passes::target_pass::StencilTarget for RenderBuffer {
         [self.width, self.height]
     }
 }
+
+/// Shared native buffer object behind the engine-thread pass interface.
+pub(crate) struct SharedStencilTarget(pub Arc<RenderBuffer>);
+impl crate::passes::target_pass::StencilTarget for SharedStencilTarget {
+    fn size(&self) -> [i32; 2] {
+        [self.0.width, self.0.height]
+    }
+    fn native_target(&self) -> Option<Arc<dyn FramebufferTarget>> {
+        Some(self.0.clone())
+    }
+}

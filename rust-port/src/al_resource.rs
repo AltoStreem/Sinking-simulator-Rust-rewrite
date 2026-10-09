@@ -1,5 +1,5 @@
 //! ALResource.java's generic ID and dependency forwarding.
-//! Concrete OpenAL class/backend conversion remains pending.
+//! Used by translated audio classes and the live native Windows audio graph.
 #![allow(dead_code)]
 use crate::resource::{ResourceHandle, ResourceRuntime};
 pub(crate) struct AlResource<T> {
@@ -11,7 +11,7 @@ impl<T> AlResource<T> {
         id: T,
         dependencies: &[ResourceHandle],
         runtime: &ResourceRuntime,
-        free: impl FnOnce() + Send + 'static,
+        free: impl Fn() + Send + Sync + 'static,
     ) -> Self {
         Self {
             id,

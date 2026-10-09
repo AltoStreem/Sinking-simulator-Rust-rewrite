@@ -37,6 +37,9 @@ impl Fbo {
     pub fn id(&self) -> i32 {
         self.resource.id()
     }
+    pub(crate) fn resource_handle(&self) -> ResourceHandle {
+        self.resource.resource_handle()
+    }
     pub fn bind(&self) {
         let mut backend = self.backend.lock().unwrap();
         backend.bind_framebuffer(36160, self.id());

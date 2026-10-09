@@ -4,23 +4,81 @@
 use crate::gl_data_holder::{DataTexture, GlDataHolder};
 pub(crate) const INTERNAL_FORMAT: [i32; 5] = [0, 33330, 33336, 36221, 36220];
 pub(crate) const FORMAT: [i32; 5] = [0, 36244, 33320, 36248, 36249];
+
+/// Native Texture2D-backed counterpart of the original GLDataHolder.
+pub(crate) struct SourceUInt8DataHolder {
+    pub(crate) width: i32,
+    pub(crate) height: i32,
+    texture: std::sync::Arc<crate::texture_2d::SourceTexture2D>,
+}
+impl SourceUInt8DataHolder {
+    pub(crate) fn new(
+        width: i32,
+        height: i32,
+        components: i32,
+        backend: std::sync::Arc<std::sync::Mutex<dyn crate::texture::TextureBackend>>,
+        context: crate::resource::ResourceHandle,
+        runtime: &crate::resource::ResourceRuntime,
+    ) -> Result<Self, String> {
+        // Java indexes format first and internalFormat second. Preserve that order
+        // and accept table entry zero, as the source constructor does.
+        let index = usize::try_from(components).map_err(|_| {
+            format!("Source UInt8DataHolder format array index out of bounds: {components}")
+        })?;
+        let external_format = *FORMAT.get(index).ok_or_else(|| {
+            format!("Source UInt8DataHolder format array index out of bounds: {components}")
+        })?;
+        let internal_format = *INTERNAL_FORMAT.get(index).ok_or_else(|| {
+            format!("Source UInt8DataHolder internalFormat array index out of bounds: {components}")
+        })?;
+        let texture = crate::texture_2d::SourceTexture2D::new(
+            None,
+            [width, height],
+            external_format,
+            internal_format,
+            5125,
+            false,
+            std::sync::Arc::new(crate::uint8_data_texture_config::configure),
+            backend,
+            context,
+            runtime,
+        );
+        Ok(Self {
+            width,
+            height,
+            texture: std::sync::Arc::new(texture),
+        })
+    }
+}
+impl crate::gl_data_holder::SourceGlDataHolder for SourceUInt8DataHolder {
+    fn source_texture(&self) -> std::sync::Arc<crate::texture_2d::SourceTexture2D> {
+        self.texture.clone()
+    }
+}
+
 pub(crate) struct UInt8DataHolder {
     texture: DataTexture,
     data: Option<Vec<[u32; 4]>>,
 }
 impl UInt8DataHolder {
     pub fn new(width: usize, height: usize, components: usize) -> Self {
-        assert!(
-            (1..=4).contains(&components),
-            "Source integer component count must be 1..=4"
-        );
+        // The Java constructor does not validate the component count. It indexes
+        // `format[components]` before `internalFormat[components]`, so index 0 is
+        // a valid (if unusual) zero-format texture and an out-of-range index
+        // fails at the first array lookup.
+        let external_format = *FORMAT
+            .get(components)
+            .expect("Source UInt8DataHolder format array index out of bounds");
+        let internal_format = *INTERNAL_FORMAT
+            .get(components)
+            .expect("Source UInt8DataHolder internalFormat array index out of bounds");
         Self {
             texture: DataTexture::new(
                 width,
                 height,
                 components,
-                FORMAT[components],
-                INTERNAL_FORMAT[components],
+                external_format,
+                internal_format,
                 5125,
             ),
             data: None,

@@ -1,0 +1,273 @@
+[
+
+	{
+		"name": "Titanium Hull",
+		"strength": 65,
+		"compressiveStrength": 405,
+		"mass": 2409,
+		"colours": ["#5D5D60", "#8F1F00", "#8B7A00", "#3C8400", "#00657E", "#1A2C66", "#93007B", "#BA7100", "#161616", "#565663", "#555555"],
+		"isHull": true,
+		"Cost": 35420
+	},
+	{
+		"name": "Titanium",
+		"strength": 61,
+		"compressiveStrength": 395,
+		"mass": 1933,
+		"colours": ["#8F8F93", "#BE1400", "#B88D00", "#66B100", "#009BA9", "#26498C", "#BF00BA", "#EF6B00", "#272728", "#787896", "#666666"],
+		"Cost": 34650
+	},
+	{
+		"name": "Mass1",
+		"strength": 50000,
+		"mass": 400000,
+		"colours": ["#6B6767", "#9B4242", "#9A9B42", "#519B42", "#429B9B", "#49429B", "#9B429A", "#9B7B42", "#292727", "#9E7653"],
+		"Cost": 1
+	},
+	{
+		"name": "Wooden Hull",
+		"strength": 38,
+		"compressiveStrength": 290,
+		"mass": 1795,
+		"colours": ["#905020", "#9E2E0C", "#998B0A", "#439206", "#036E8C", "#1E3070", "#A30085", "#CE8100", "#0A0603", "#777777"],
+		"isHull": true,
+		"Cost": 31
+	},
+	{
+		"name": "Wood",
+		"strength": 32,
+		"compressiveStrength": 280,
+		"mass": 1605,
+		"colours": ["#E0D8C0", "#B51B1B", "#AF7C18", "#78A814", "#10A19D", "#325989", "#9B00AF", "#DE4000", "#110E08", "#888888"],
+		"Cost": 25
+	},
+	{
+		"name": "Concrete Hull",
+		"strength": 45,
+		"compressiveStrength": 550,
+		"mass": 4760,
+		"colours": ["#5F5241", "#664037", "#51401A", "#588644", "#336062", "#1C2E48", "#802F74", "#51341A", "#292827"],
+		"isHull": true,
+		"Cost": 115
+	},
+	{
+		"name": "Concrete",
+		"strength": 40,
+		"compressiveStrength": 490,
+		"mass": 4760,
+		"colours": ["#89775F", "#845348", "#806528", "#74AB5C", "#4B9194", "#35578A", "#B141A0", "#824A26", "#383634"],
+		"Cost": 85
+	},
+	{
+		"name": "Aluminium Hull",
+		"strength": 55,
+		"compressiveStrength": 350,
+		"mass": 1760,
+		"colours": ["#A0A0A0", "#B72619", "#C68700", "#478900", "#087684", "#1D2F68","#A50B93", "#C64F00", "#0F0F10"],
+		"isHull": true,
+		"Cost": 6315
+	},
+	{
+		"name": "Aluminium",
+		"strength": 47,
+		"compressiveStrength": 340,
+		"mass": 1665,
+		"colours": ["#CAC9C9", "#D82A1E", "#E29300", "#60B500", "#0EC2CC", "#2E4CA5", "#DB0FC3", "#FF7100", "#262626"],
+		"Cost": 6315
+	},
+	{
+		"name": "Steel Hull",
+		"strength": 75,
+		"compressiveStrength": 420,
+		"mass": 2843,
+		"colours": ["#827C7C", "#A71000", "#A27A00", "#5A9B00", "#008A95", "#22437B", "#A900A7", "#D45B00", "#111111"],
+		"isHull": true,
+		"Cost": 6988
+	},
+	{
+		"name": "Steel",
+		"strength": 69,
+		"compressiveStrength": 410,
+		"mass": 2321,
+		"colours": ["#D8D8D8", "#D80E00", "#D29800", "#7BC800", "#00B6BF", "#2D58A0", "#D100D6", "#F26500", "#171717"],
+		"Cost": 5909
+	},
+	{
+		"name": "Iron Hull",
+		"strength": 69,
+		"compressiveStrength": 400,
+		"mass": 3107,
+		"colours": ["#545456", "#840E00", "#806200", "#467B00", "#006A76", "#1B3261", "#860080", "#A84F00", "#100F0F"],
+		"isHull": true,
+		"Cost": 367
+	},
+	{
+		"name": "Iron",
+		"strength": 63,
+		"compressiveStrength": 390,
+		"mass": 2507,
+		"colours": ["#AAAAAA", "#9E0F00", "#997200", "#569200", "#00818C", "#203E74", "#9F009C", "#C85800", "#191919"],
+		"Cost": 362
+	},
+	{
+		"name": "FS Aluminium Hull",
+		"strength": 55,
+		"compressiveStrength": 350,
+		"mass": 1760,
+		"colours": ["#E0E0E0", "#A42E10", "#A29A10", "#76B210", "#10A29A", "#204060", "#757575", "#C8C8C8", "#C0C0C0"],
+		"isHull": true,
+		"Cost": 6315
+	},
+	{
+		"name": "FS Aluminium",
+		"strength": 47,
+		"compressiveStrength": 340,
+		"mass": 1665,
+		"colours": ["#EFEFEF", "#B22212", "#B2A012", "#88B810", "#10B2A0", "#305878", "#989898", "#D0D0D0"],
+		"Cost": 6315
+	},
+	{
+		"name": "FS Steel Hull",
+		"strength": 75,
+		"compressiveStrength": 420,
+		"mass": 2843,
+		"colours": ["#950000", "#926A00", "#333333", "#909090"],
+		"isHull": true,
+		"Cost": 6988
+	},
+	{
+		"name": "FS Steel",
+		"strength": 69,
+		"compressiveStrength": 410,
+		"mass": 2321,
+		"colours": ["#444444"],
+		"Cost": 5909
+	},
+	{
+		"name": "FS Iron Hull",
+		"strength": 69,
+		"compressiveStrength": 400,
+		"mass": 3107,
+		"colours": ["#404050", "#740200", "#705200", "#303040"],
+		"isHull": true,
+		"Cost": 367
+	},
+	{
+		"name": "FS Iron",
+		"strength": 63,
+		"compressiveStrength": 390,
+		"mass": 2507,
+		"colours": ["#808090", "#222222"],
+		"Cost": 362
+	},
+	{
+		"name": "Sky",
+		"strength": 80,
+		"mass": 600,
+		"colours": ["#87CEFA", "#F0F0F0", "#000208"],
+		"Cost": 1,
+		"invisible": true
+	},
+	{
+		"name": "Cardboard Hull",
+		"strength": 12,
+		"mass": 1130,
+		"colours": ["#A88848", "#545454", "#DFDFDF", "#B7B7B7"],
+		"isHull": true,
+		"Cost": 3
+	},
+	{
+		"name": "Cardboard",
+		"strength": 10,
+		"mass": 811,
+		"colours": ["#C1A46A", "#F2F2F2"],
+		"Cost": 2
+	},
+	{
+		"name": "Ground",
+		"strength": 20000000000000,
+		"mass": 1000000000,
+		"colour": "#7F7F7F",
+		"isHull": true,
+		"isGround": true,
+		"Cost": 1
+	},
+	{
+		"name": "Rope",
+		"strength": 85,
+		"mass": 300,
+		"colour": "#000000",
+		"isRope": true,
+		"Cost": 29
+	},
+	{
+		"name": "Carbon Hull",
+		"strength": 80,
+		"compressiveStrength": 460,
+		"mass": 930,
+		"colour": "#1A1A1A",
+		"isHull": true,
+		"Cost": 8561
+	},
+	{
+		"name": "Carbon",
+		"strength": 76,
+		"compressiveStrength": 450,
+		"mass": 845,
+		"colour": "#232323",
+		"Cost": 8246
+	},
+	{
+		"name": "Double Bottom Steel",
+		"strength": 85,
+		"compressiveStrength": 560,
+		"mass": 4650,
+		"colour": "#A21000",
+		"isHull": true,
+		"Cost": 11880
+	},
+	{
+		"name": "Double Bottom Iron",
+		"strength": 78,
+		"compressiveStrength": 525,
+		"mass": 4450,
+		"colour": "#7E0C00",
+		"isHull": true,
+		"Cost": 8240
+	},
+	{
+		"name": "Double Bottom Titanium",
+		"strength": 82,
+		"compressiveStrength": 550,
+		"mass": 3850,
+		"colour": "#842005",
+		"isHull": true,
+		"Cost": 60214
+	},
+	{
+		"name": "Double Bottom Wood",
+		"strength": 59,
+		"compressiveStrength": 420,
+		"mass": 2650,
+		"colour": "#9B3012",
+		"isHull": true,
+		"Cost": 53
+	},
+	{
+		"name": "Glass Hull",
+		"strength": 29,
+		"compressiveStrength": 320,
+		"mass": 2350,
+		"colour": "#C1FFFF",
+		"isHull": true,
+		"Cost": 41
+	},
+	{
+		"name": "Glass",
+		"strength": 25,
+		"compressiveStrength": 310,
+		"mass": 2200,
+		"colour": "#E5FFFF",
+		"Cost": 41
+	}
+]

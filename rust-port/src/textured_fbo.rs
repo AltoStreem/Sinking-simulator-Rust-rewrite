@@ -85,6 +85,9 @@ impl TexturedFbo {
 }
 /// Connects the translated framebuffer scope to the existing TargetPass contract.
 impl crate::passes::target_pass::TargetBinding for TexturedFbo {
+    fn check_error(&mut self, label: &str) {
+        self.fbo.backend.lock().unwrap().check_error(label);
+    }
     fn viewport(&mut self) -> [i32; 4] {
         self.fbo.backend.lock().unwrap().viewport()
     }

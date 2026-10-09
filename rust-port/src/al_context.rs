@@ -15,6 +15,12 @@ pub(crate) trait AlContextBackend: Send {
     fn make_current(&mut self, context: i64) -> bool;
     fn create_alc_capabilities(&mut self, id: i64) -> CapabilityObject;
     fn create_al_capabilities(&mut self, alc: &CapabilityObject) -> CapabilityObject;
+    fn try_alc_capabilities(&mut self, id: i64) -> Result<CapabilityObject, String> {
+        Ok(self.create_alc_capabilities(id))
+    }
+    fn try_al_capabilities(&mut self, alc: &CapabilityObject) -> Result<CapabilityObject, String> {
+        Ok(self.create_al_capabilities(alc))
+    }
     fn destroy_context(&mut self, id: i64);
 }
 pub(crate) struct AlContext {
@@ -65,6 +71,12 @@ impl AlContext {
         CURRENT.lock().unwrap().clone()
     }
     pub fn start(self: &Arc<Self>) {
+        self.try_start().unwrap_or_else(|error| panic!("{error}"));
+    }
+    /// Same source start ordering, with native exceptions represented as errors.
+    /// A failed AL constructor leaves current and the initialized ALC property
+    /// assigned, exactly as the original exception path does.
+    pub fn try_start(self: &Arc<Self>) -> Result<(), String> {
         let _ = self.backend.lock().unwrap().make_current(self.id());
         *CURRENT.lock().unwrap() = Some(self.clone());
         if self.alc_capabilities.lock().unwrap().is_none() {
@@ -72,11 +84,12 @@ impl AlContext {
                 .backend
                 .lock()
                 .unwrap()
-                .create_alc_capabilities(self.id());
+                .try_alc_capabilities(self.id())?;
             *self.alc_capabilities.lock().unwrap() = Some(alc.clone());
-            let al = self.backend.lock().unwrap().create_al_capabilities(&alc);
+            let al = self.backend.lock().unwrap().try_al_capabilities(&alc)?;
             *self.al_capabilities.lock().unwrap() = Some(al);
         }
+        Ok(())
     }
     pub fn stop(&self) {
         let _ = self.backend.lock().unwrap().make_current(0);
@@ -107,6 +120,9 @@ impl AlContext {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // Both fixtures exercise the same source process-global CURRENT pointer.
+    // Serialize their complete lifetimes, including the cross-thread read.
+    static CURRENT_FIXTURE: Mutex<()> = Mutex::new(());
     use crate::{
         al_context_start_reference::AlcCapabilitiesReference,
         al_device::{AlDeviceBackend, AlDeviceClass},
@@ -134,8 +150,28 @@ mod tests {
     struct Backend {
         log: Log,
         next: i64,
+        failure: Option<&'static str>,
     }
     impl AlContextBackend for Backend {
+        fn try_alc_capabilities(&mut self, id: i64) -> Result<CapabilityObject, String> {
+            if self.failure == Some("ALC") {
+                self.log.lock().unwrap().push(format!("alc-error:{id}"));
+                Err("ALC constructor failed".into())
+            } else {
+                Ok(self.create_alc_capabilities(id))
+            }
+        }
+        fn try_al_capabilities(
+            &mut self,
+            alc: &CapabilityObject,
+        ) -> Result<CapabilityObject, String> {
+            if self.failure == Some("AL") {
+                self.log.lock().unwrap().push("al-error".into());
+                Err("AL constructor failed".into())
+            } else {
+                Ok(self.create_al_capabilities(alc))
+            }
+        }
         fn create_context(&mut self, id: i64, attributes: &[i32]) -> i64 {
             self.next += 1;
             self.log
@@ -164,7 +200,59 @@ mod tests {
         }
     }
     #[test]
+    fn failed_start_retains_source_current_and_partial_lazy_properties() {
+        let _fixture = CURRENT_FIXTURE.lock().unwrap();
+        let runtime = ResourceRuntime::default();
+        let log = Log::default();
+        let class = AlDeviceClass::default();
+        let devices = Arc::new(Mutex::new(DeviceBackend {
+            log: log.clone(),
+            next: 40,
+        }));
+        let device = class.default_device(devices, &runtime);
+        let backend = Arc::new(Mutex::new(Backend {
+            log: log.clone(),
+            next: 99,
+            failure: Some("ALC"),
+        }));
+        let context = AlContext::new(device.clone(), backend.clone(), &runtime);
+        assert_eq!(context.try_start().unwrap_err(), "ALC constructor failed");
+        assert!(Arc::ptr_eq(&context, &AlContext::current().unwrap()));
+        assert!(
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| context.alc_capabilities()))
+                .is_err()
+        );
+        backend.lock().unwrap().failure = Some("AL");
+        assert_eq!(context.try_start().unwrap_err(), "AL constructor failed");
+        let alc = context.alc_capabilities();
+        assert!(
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| context.al_capabilities()))
+                .is_err()
+        );
+        backend.lock().unwrap().failure = None;
+        context.try_start().unwrap();
+        assert!(Arc::ptr_eq(&alc, &context.alc_capabilities()));
+        assert!(
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| context.al_capabilities()))
+                .is_err(),
+            "cached ALC skips the failed AL constructor on restart"
+        );
+        assert_eq!(
+            log.lock()
+                .unwrap()
+                .iter()
+                .filter(|line| *line == "al-error")
+                .count(),
+            1
+        );
+        context.stop();
+        device.close();
+        runtime.run_main();
+        assert!(context.freed() && device.freed());
+    }
+    #[test]
     fn initialization_global_current_lazy_capabilities_property_reference_and_cleanup() {
+        let _fixture = CURRENT_FIXTURE.lock().unwrap();
         let runtime = ResourceRuntime::default();
         let log = Log::default();
         let class = AlDeviceClass::default();
@@ -189,6 +277,7 @@ mod tests {
         let backend = Arc::new(Mutex::new(Backend {
             log: log.clone(),
             next: 99,
+            failure: None,
         }));
         let context = AlContext::new(device.clone(), backend.clone(), &runtime);
         assert!(

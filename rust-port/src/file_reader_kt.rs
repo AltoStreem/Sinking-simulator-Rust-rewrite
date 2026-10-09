@@ -175,34 +175,170 @@ fn jar_entries(bytes: &[u8]) -> io::Result<Vec<JarEntry>> {
     if u16_at(bytes, end + 4)? != 0 || u16_at(bytes, end + 6)? != 0 {
         return Err(invalid("Split ZIP archives are unsupported"));
     }
-    let count = u16_at(bytes, end + 10)?;
-    let mut cursor = u32_at(bytes, end + 16)? as usize;
-    if count == u16::MAX || cursor == u32::MAX as usize {
-        return Err(invalid("ZIP64 archive adapter pending"));
+
+    let eocd_count = u16_at(bytes, end + 10)?;
+    if u16_at(bytes, end + 8)? != eocd_count {
+        return Err(invalid("Split ZIP archives are unsupported"));
     }
-    let mut entries = Vec::new();
+    let eocd_size = u32_at(bytes, end + 12)?;
+    let eocd_offset = u32_at(bytes, end + 16)?;
+    let has_zip64_locator = end >= 20 && u32_at(bytes, end - 20).ok() == Some(0x07064b50);
+    let (count, central_size, central_offset) = if has_zip64_locator {
+        let locator = end - 20;
+        if u32_at(bytes, locator + 4)? != 0 || u32_at(bytes, locator + 16)? != 1 {
+            return Err(invalid("Split ZIP64 archives are unsupported"));
+        }
+        let record = usize::try_from(u64_at(bytes, locator + 8)?)
+            .map_err(|_| invalid("ZIP64 end directory is too large"))?;
+        if u32_at(bytes, record)? != 0x06064b50 || u64_at(bytes, record + 4)? < 44 {
+            return Err(invalid("Invalid ZIP64 end directory"));
+        }
+        if u32_at(bytes, record + 16)? != 0 || u32_at(bytes, record + 20)? != 0 {
+            return Err(invalid("Split ZIP64 archives are unsupported"));
+        }
+        let entries_on_disk = u64_at(bytes, record + 24)?;
+        let entries_total = u64_at(bytes, record + 32)?;
+        if entries_on_disk != entries_total {
+            return Err(invalid("Split ZIP64 archives are unsupported"));
+        }
+        (
+            usize::try_from(entries_total).map_err(|_| invalid("Too many ZIP entries"))?,
+            usize::try_from(u64_at(bytes, record + 40)?)
+                .map_err(|_| invalid("ZIP64 central directory is too large"))?,
+            usize::try_from(u64_at(bytes, record + 48)?)
+                .map_err(|_| invalid("ZIP64 central directory offset is too large"))?,
+        )
+    } else {
+        if eocd_count == u16::MAX || eocd_size == u32::MAX || eocd_offset == u32::MAX {
+            return Err(invalid("Missing ZIP64 end directory locator"));
+        }
+        (
+            usize::from(eocd_count),
+            eocd_size as usize,
+            eocd_offset as usize,
+        )
+    };
+
+    let central_end = central_offset
+        .checked_add(central_size)
+        .ok_or_else(|| invalid("ZIP central directory length overflow"))?;
+    slice(bytes, central_offset, central_size)?;
+    let mut cursor = central_offset;
+    if count > central_size / 46 {
+        return Err(invalid("ZIP entry count exceeds central directory size"));
+    }
+    let mut entries = Vec::with_capacity(count);
     for _ in 0..count {
         if u32_at(bytes, cursor)? != 0x02014b50 {
             return Err(invalid("Invalid ZIP central directory"));
         }
+        let flags = u16_at(bytes, cursor + 8)?;
+        let method = u16_at(bytes, cursor + 10)?;
+        let crc = u32_at(bytes, cursor + 16)?;
+        let packed32 = u32_at(bytes, cursor + 20)?;
+        let unpacked32 = u32_at(bytes, cursor + 24)?;
         let name_len = usize::from(u16_at(bytes, cursor + 28)?);
-        let extra = usize::from(u16_at(bytes, cursor + 30)?);
-        let comment = usize::from(u16_at(bytes, cursor + 32)?);
-        let name = std::str::from_utf8(slice(bytes, cursor + 46, name_len)?)
+        let extra_len = usize::from(u16_at(bytes, cursor + 30)?);
+        let comment_len = usize::from(u16_at(bytes, cursor + 32)?);
+        let disk16 = u16_at(bytes, cursor + 34)?;
+        let local32 = u32_at(bytes, cursor + 42)?;
+        let name_start = cursor
+            .checked_add(46)
+            .ok_or_else(|| invalid("ZIP offset overflow"))?;
+        let extra_start = name_start
+            .checked_add(name_len)
+            .ok_or_else(|| invalid("ZIP offset overflow"))?;
+        let extra_end = extra_start
+            .checked_add(extra_len)
+            .ok_or_else(|| invalid("ZIP offset overflow"))?;
+        let entry_end = extra_end
+            .checked_add(comment_len)
+            .ok_or_else(|| invalid("ZIP offset overflow"))?;
+        if entry_end > central_end {
+            return Err(invalid("Truncated ZIP central directory"));
+        }
+        let name = std::str::from_utf8(slice(bytes, name_start, name_len)?)
             .map_err(|_| invalid("Non-UTF8 JAR path"))?
             .to_owned();
+
+        let mut packed = (packed32 != u32::MAX).then_some(u64::from(packed32));
+        let mut unpacked = (unpacked32 != u32::MAX).then_some(u64::from(unpacked32));
+        let mut local = (local32 != u32::MAX).then_some(u64::from(local32));
+        let mut disk = (disk16 != u16::MAX).then_some(u32::from(disk16));
+        let mut extra_cursor = extra_start;
+        while extra_cursor < extra_end {
+            if extra_end - extra_cursor < 4 {
+                return Err(invalid("Truncated ZIP extra field"));
+            }
+            let tag = u16_at(bytes, extra_cursor)?;
+            let size = usize::from(u16_at(bytes, extra_cursor + 2)?);
+            let data_start = extra_cursor + 4;
+            let data_end = data_start
+                .checked_add(size)
+                .ok_or_else(|| invalid("ZIP extra field overflow"))?;
+            if data_end > extra_end {
+                return Err(invalid("Truncated ZIP extra field"));
+            }
+            if tag == 0x0001 {
+                let field = slice(bytes, data_start, size)?;
+                let mut field_cursor = 0;
+                if unpacked.is_none() {
+                    unpacked = Some(take_u64(field, &mut field_cursor)?);
+                }
+                if packed.is_none() {
+                    packed = Some(take_u64(field, &mut field_cursor)?);
+                }
+                if local.is_none() {
+                    local = Some(take_u64(field, &mut field_cursor)?);
+                }
+                if disk.is_none() {
+                    disk = Some(take_u32(field, &mut field_cursor)?);
+                }
+                break;
+            }
+            extra_cursor = data_end;
+        }
+        if disk.unwrap_or(0) != 0 {
+            return Err(invalid("Split ZIP archives are unsupported"));
+        }
         entries.push(JarEntry {
             name,
-            flags: u16_at(bytes, cursor + 8)?,
-            method: u16_at(bytes, cursor + 10)?,
-            crc: u32_at(bytes, cursor + 16)?,
-            packed: u32_at(bytes, cursor + 20)? as usize,
-            unpacked: u32_at(bytes, cursor + 24)? as usize,
-            local: u32_at(bytes, cursor + 42)? as usize,
+            flags,
+            method,
+            crc,
+            packed: usize::try_from(packed.ok_or_else(|| invalid("Missing ZIP64 packed size"))?)
+                .map_err(|_| invalid("ZIP entry is too large"))?,
+            unpacked: usize::try_from(
+                unpacked.ok_or_else(|| invalid("Missing ZIP64 unpacked size"))?,
+            )
+            .map_err(|_| invalid("ZIP entry is too large"))?,
+            local: usize::try_from(
+                local.ok_or_else(|| invalid("Missing ZIP64 local header offset"))?,
+            )
+            .map_err(|_| invalid("ZIP entry offset is too large"))?,
         });
-        cursor += 46 + name_len + extra + comment;
+        cursor = entry_end;
     }
     Ok(entries)
+}
+fn take_u64(bytes: &[u8], cursor: &mut usize) -> io::Result<u64> {
+    let value = u64::from_le_bytes(slice(bytes, *cursor, 8)?.try_into().unwrap());
+    *cursor = cursor
+        .checked_add(8)
+        .ok_or_else(|| invalid("ZIP64 extra field overflow"))?;
+    Ok(value)
+}
+fn take_u32(bytes: &[u8], cursor: &mut usize) -> io::Result<u32> {
+    let value = u32::from_le_bytes(slice(bytes, *cursor, 4)?.try_into().unwrap());
+    *cursor = cursor
+        .checked_add(4)
+        .ok_or_else(|| invalid("ZIP64 extra field overflow"))?;
+    Ok(value)
+}
+fn u64_at(bytes: &[u8], offset: usize) -> io::Result<u64> {
+    Ok(u64::from_le_bytes(
+        slice(bytes, offset, 8)?.try_into().unwrap(),
+    ))
 }
 impl JarEntry {
     fn decode(&self, archive: &[u8]) -> io::Result<Vec<u8>> {

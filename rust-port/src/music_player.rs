@@ -1,10 +1,7 @@
 //! Translation of MusicPlayer.java: remove-on-play queue, optional shuffle,
 //! repeat of the entire queue, pause/resume, volume and playback position.
-use crate::{
-    MusicStatus, SettingAction, SettingButton, Simulation, TabPage, ToolboxContent, ToolboxTab,
-};
+use crate::{MusicStatus, SettingAction, Simulation};
 use bevy::asset::AssetId;
-use bevy::camera::visibility::RenderLayers;
 use bevy::tasks::{AsyncComputeTaskPool, Task, block_on, poll_once};
 use bevy::{
     audio::{AudioSinkPlayback, Decodable, Volume},
@@ -25,7 +22,7 @@ pub(crate) struct Track {
 #[derive(Resource)]
 pub(crate) struct MusicPlayer {
     pub tracks: Vec<Track>,
-    queue: Vec<usize>,
+    pub(crate) queue: Vec<usize>,
     pub current: Option<usize>,
     pub paused: bool,
     pub autonext: bool,
@@ -34,7 +31,8 @@ pub(crate) struct MusicPlayer {
     pub progress: f32,
     pub max_progress: f32,
     pub pending_seek: Option<Duration>,
-    revision: u64,
+    pub(crate) revision: u64,
+    pub(crate) next_requests: u64,
     duration_checked: bool,
 }
 impl MusicPlayer {
@@ -51,38 +49,42 @@ impl MusicPlayer {
             max_progress: 0.0,
             pending_seek: None,
             revision: 0,
+            next_requests: 0,
             duration_checked: false,
         };
         player.next_track();
         player
     }
     pub fn discover() -> Self {
-        fn visit(path: &Path, tracks: &mut Vec<Track>) {
-            if path.is_dir() {
-                if let Ok(entries) = std::fs::read_dir(path) {
-                    for entry in entries.flatten() {
-                        visit(&entry.path(), tracks);
-                    }
-                }
-            } else if path.extension().is_some_and(|extension| extension == "ogg") {
-                let name = path.file_stem().unwrap().to_string_lossy().into_owned();
+        let root = Path::new("assets/music");
+        let mut tracks = Vec::new();
+        // Main.main$1 is the recursive unsorted getFlatFiles traversal used by
+        // the source coroutine before filtering exact lowercase .ogg extensions.
+        for path in crate::main_flat_files::invoke(root) {
+            let Some(file_name) = path.file_name().map(|name| name.to_string_lossy()) else {
+                continue;
+            };
+            if crate::main_flat_files::kotlin_file_extension(&file_name) == "ogg" {
+                let name = crate::main_flat_files::kotlin_file_name_without_extension(&file_name)
+                    .to_owned();
                 let asset = path
                     .strip_prefix("assets")
-                    .unwrap_or(path)
+                    .unwrap_or(&path)
                     .to_string_lossy()
                     .replace('\\', "/");
-                if let Some(track) = tracks.iter_mut().find(|track| track.name == name) {
+                if let Some(track) = tracks
+                    .iter_mut()
+                    .find(|track: &&mut Track| track.name == name)
+                {
                     track.asset = asset;
                 } else {
                     tracks.push(Track { name, asset });
                 }
             }
         }
-        let mut tracks = Vec::new();
-        visit(Path::new("assets/music"), &mut tracks);
         // Main puts its insertion-ordered discovery map into java.util.HashMap.
         // Its keySet iterates table buckets, not alphabetically or by filename.
-        let capacity = ((tracks.len() * 4 / 3 + 1).max(1)).next_power_of_two();
+        let capacity = java_hash_map_capacity(tracks.len());
         tracks.sort_by_key(|track| java_track_bucket(&track.name, capacity));
         // Main constructs with an empty map, populates it, then calls nextTrack.
         // No pause is introduced while repeat is enabled.
@@ -103,6 +105,7 @@ impl MusicPlayer {
             .finish();
         let mut rng = rand::rngs::SmallRng::seed_from_u64(seed);
         self.next_with(|len| rng.random_range(0..len));
+        self.next_requests = self.next_requests.wrapping_add(1);
     }
     fn next_with(&mut self, choose: impl FnOnce(usize) -> usize) {
         if self.queue.is_empty() {
@@ -129,7 +132,29 @@ impl MusicPlayer {
     }
 }
 
-fn java_track_bucket(name: &str, capacity: usize) -> usize {
+/// Main creates a default HashMap, then fills its unallocated table with putAll.
+/// HashMap pre-sizes that first table from the source map size before inserting keys.
+pub(crate) fn java_hash_map_capacity(entries: usize) -> usize {
+    if entries == 0 {
+        return 16; // No bucket is observed when the source map is empty.
+    }
+    const MAXIMUM_CAPACITY: usize = 1 << 30;
+    let requested = entries as f32 / 0.75_f32 + 1.0_f32;
+    if !requested.is_finite() || requested >= MAXIMUM_CAPACITY as f32 {
+        return MAXIMUM_CAPACITY;
+    }
+    let required = (requested as usize).max(1);
+    let mut capacity = required
+        .checked_next_power_of_two()
+        .unwrap_or(MAXIMUM_CAPACITY)
+        .min(MAXIMUM_CAPACITY);
+    while entries > capacity * 3 / 4 && capacity < MAXIMUM_CAPACITY {
+        capacity = (capacity * 2).min(MAXIMUM_CAPACITY);
+    }
+    capacity
+}
+
+pub(crate) fn java_track_bucket(name: &str, capacity: usize) -> usize {
     let hash = name.encode_utf16().fold(0u32, |hash, unit| {
         hash.wrapping_mul(31).wrapping_add(unit as u32)
     });
@@ -160,6 +185,10 @@ pub(crate) struct Playback {
     revision: u64,
 }
 
+#[cfg(windows)]
+pub(crate) use crate::native_music::sync;
+
+#[cfg(not(windows))]
 pub(crate) fn sync(
     mut commands: Commands,
     assets: Res<AssetServer>,
@@ -169,7 +198,6 @@ pub(crate) fn sync(
     mut sinks: Query<(Entity, &Playback, Option<&mut AudioSink>)>,
     mut labels: Query<&mut Text2d, With<MusicStatus>>,
     mut icons: Query<(&MusicIcon, &mut Sprite)>,
-    mut progress: Query<&mut Text2d, (With<MusicProgress>, Without<MusicStatus>)>,
     mut durations: Local<DurationCache>,
 ) {
     let finished: Vec<_> = durations
@@ -231,7 +259,16 @@ pub(crate) fn sync(
             commands.spawn((AudioPlayer::new(handle), settings, Playback { revision }));
         }
     }
-    for (icon, mut sprite) in &mut icons {
+    sync_display(&assets, &player, &mut labels, &mut icons);
+}
+
+pub(crate) fn sync_display(
+    assets: &AssetServer,
+    player: &MusicPlayer,
+    labels: &mut Query<&mut Text2d, With<MusicStatus>>,
+    icons: &mut Query<(&MusicIcon, &mut Sprite)>,
+) {
+    for (icon, mut sprite) in icons.iter_mut() {
         let name = match icon.0 {
             SettingAction::ToggleShuffle => {
                 if player.shuffle {
@@ -258,106 +295,17 @@ pub(crate) fn sync(
         };
         sprite.image = assets.load(format!("icons/music/{name}.png"));
     }
-    for mut label in &mut progress {
-        label.0 = format!("{:.1} / {:.1} s", player.progress, player.max_progress);
-    }
-    for mut label in &mut labels {
+    for mut label in labels.iter_mut() {
         let name = player
             .current
             .map(|index| player.tracks[index].name.as_str())
             .unwrap_or("");
-        label.0 = format!(
-            "{}  •  {}",
-            name,
-            if player.paused { "PAUSED" } else { "PLAYING" }
-        );
+        label.0 = name.to_owned();
     }
 }
 
 #[derive(Component)]
-pub(crate) struct MusicIcon(SettingAction);
-#[derive(Component)]
-pub(crate) struct MusicProgress;
-
-pub(crate) fn spawn_controls(commands: &mut Commands, assets: &AssetServer) {
-    for (action, name, x) in [
-        (SettingAction::ToggleShuffle, "shuffle", -545.0),
-        (SettingAction::ToggleRepeat, "repeat-off", -505.0),
-        (SettingAction::ToggleMusic, "play", -465.0),
-        (SettingAction::NextTrack, "skip-next", -425.0),
-    ] {
-        commands.spawn((
-            ToolboxContent,
-            TabPage(ToolboxTab::Music),
-            SettingButton(action),
-            Sprite::from_color(Color::srgb(0.23, 0.25, 0.40), Vec2::splat(30.0)),
-            Transform::from_xyz(x, 110.0, 24.5),
-            RenderLayers::layer(1),
-            Visibility::Hidden,
-        ));
-        let mut sprite = Sprite::from_image(assets.load(format!("icons/music/{name}.png")));
-        sprite.custom_size = Some(Vec2::splat(24.0));
-        commands.spawn((
-            ToolboxContent,
-            TabPage(ToolboxTab::Music),
-            MusicIcon(action),
-            sprite,
-            Transform::from_xyz(x, 110.0, 25.0),
-            RenderLayers::layer(1),
-            Visibility::Hidden,
-        ));
-    }
-    commands.spawn((
-        ToolboxContent,
-        TabPage(ToolboxTab::Music),
-        Sprite::from_color(Color::srgb(0.23, 0.25, 0.27), Vec2::new(230.0, 26.0)),
-        Transform::from_xyz(-455.0, -5.0, 24.5),
-        RenderLayers::layer(1),
-        Visibility::Hidden,
-    ));
-    commands.spawn((
-        ToolboxContent,
-        TabPage(ToolboxTab::Music),
-        MusicProgress,
-        Text2d::new("0.0 / 0.0 s"),
-        TextFont {
-            font_size: FontSize::Px(13.0),
-            ..default()
-        },
-        Transform::from_xyz(-455.0, -5.0, 25.0),
-        RenderLayers::layer(1),
-        Visibility::Hidden,
-    ));
-}
-
-pub(crate) fn handle_seek(
-    mouse: Res<ButtonInput<MouseButton>>,
-    windows: Query<&Window>,
-    simulation: Res<Simulation>,
-    mut player: ResMut<MusicPlayer>,
-) {
-    if simulation.toolbox_collapsed
-        || !matches!(simulation.active_tab, ToolboxTab::Music)
-        || !mouse.pressed(MouseButton::Left)
-    {
-        return;
-    }
-    let Ok(window) = windows.single() else {
-        return;
-    };
-    let Some(cursor) = window.cursor_position() else {
-        return;
-    };
-    let scale = 720.0 / window.height().max(1.0);
-    let point = Vec2::new(
-        (cursor.x - window.width() * 0.5) * scale,
-        (window.height() * 0.5 - cursor.y) * scale,
-    );
-    if (-570.0..=-340.0).contains(&point.x) && (-18.0..=8.0).contains(&point.y) {
-        let fraction = ((point.x + 570.0) / 230.0).clamp(0.0, 1.0);
-        player.pending_seek = Some(Duration::from_secs_f32(player.max_progress * fraction));
-    }
-}
+pub(crate) struct MusicIcon(pub(crate) SettingAction);
 
 #[cfg(test)]
 mod tests {
@@ -461,8 +409,15 @@ pub(crate) struct SourceMusicPlayer {
     pub shuffle: bool,
     pub repeat: bool,
     source: crate::al_source::AlSource,
+    pub icons: Option<crate::music_player_icons::MusicIcons>,
 }
 impl SourceMusicPlayer {
+    #[cfg(test)]
+    pub(crate) fn source_playing(&self) -> bool { self.source.playing() }
+    #[cfg(test)]
+    pub(crate) fn source_id(&self) -> i32 { self.source.id() }
+    #[cfg(test)]
+    pub(crate) fn source_freed(&self) -> bool { self.source.freed() }
     pub fn new(
         tracks: std::rc::Rc<std::cell::RefCell<dyn MusicTracks>>,
         backend: std::sync::Arc<std::sync::Mutex<dyn crate::al_source::AlSourceBackend>>,
@@ -480,9 +435,36 @@ impl SourceMusicPlayer {
             autonext: true,
             shuffle: false,
             repeat: true,
+            icons: None,
         };
         player.next_track();
         player
+    }
+    pub fn new_with_icons(
+        tracks: std::rc::Rc<std::cell::RefCell<dyn MusicTracks>>,
+        backend: std::sync::Arc<std::sync::Mutex<dyn crate::al_source::AlSourceBackend>>,
+        runtime: &crate::resource::ResourceRuntime,
+        load: impl FnMut(&str) -> Result<crate::texture_2d::SourceTexture2D, String>,
+    ) -> Result<Self, String> {
+        let mut player = Self::new(tracks, backend, runtime);
+        player.icons = Some(crate::music_player_icons::MusicIcons::load(load)?);
+        Ok(player)
+    }
+    pub fn new_native(
+        tracks: std::rc::Rc<std::cell::RefCell<dyn MusicTracks>>,
+        backend: std::sync::Arc<std::sync::Mutex<dyn crate::al_source::AlSourceBackend>>,
+        textures: std::sync::Arc<std::sync::Mutex<dyn crate::texture::TextureBackend>>,
+        context: crate::resource::ResourceHandle,
+        runtime: &crate::resource::ResourceRuntime,
+    ) -> Result<Self, String> {
+        Self::new_with_icons(tracks, backend, runtime, |name| {
+            crate::music_player_icon_config::load_icon(
+                name,
+                textures.clone(),
+                context.clone(),
+                runtime,
+            )
+        })
     }
     pub fn current_buffer(&self) -> Option<std::sync::Arc<crate::al_buffer::AlBuffer>> {
         self.tracks.borrow().get(&self.current_track)
@@ -579,6 +561,244 @@ impl MusicNumber {
 #[cfg(test)]
 mod source_audio_tests {
     use super::*;
+    #[test]
+    fn source_music_ui_preserves_controls_descriptions_and_property_writes() {
+        struct Ui {
+            events: Vec<String>,
+            player: std::rc::Rc<std::cell::RefCell<SourceMusicPlayer>>,
+        }
+        impl crate::music_player_ui::Backend for Ui {
+            fn frame_height(&mut self) -> f32 {
+                self.events.push("height".into());
+                24.
+            }
+            fn image_button(
+                &mut self,
+                _: i32,
+                size: [f32; 2],
+                uv0: [f32; 2],
+                uv1: [f32; 2],
+                padding: i32,
+                background: [f32; 4],
+                tint: [f32; 4],
+            ) -> bool {
+                assert_eq!((size, uv0, uv1, padding), ([24.; 2], [0.; 2], [1.; 2], 0));
+                assert_eq!((background, tint), ([0.; 4], [1.; 4]));
+                self.events.push("button".into());
+                true
+            }
+            fn description(&mut self, text: &str) {
+                // Native callbacks may reenter the player while describing an item.
+                let _player = self.player.borrow_mut();
+                self.events.push(text.into());
+            }
+            fn same_line(&mut self, offset: f32, spacing: f32) {
+                assert_eq!((offset, spacing), (0., -1.));
+                self.events.push("line".into());
+            }
+            fn volume_slider(
+                &mut self,
+                reference: crate::music_player_volume_reference::VolumeReference,
+                label: &str,
+                min: f32,
+                max: f32,
+                format: &str,
+                power: f32,
+            ) {
+                assert_eq!(
+                    (label, min, max, format, power),
+                    ("Volume", 0., 1., "%.3f", 2.)
+                );
+                reference.set(Some(MusicNumber::Float(0.25)));
+                self.events.push("volume".into());
+            }
+            fn progress_slider(
+                &mut self,
+                reference: crate::music_player_progress_reference::ProgressReference,
+                label: &str,
+                min: f32,
+                max: f32,
+                format: &str,
+                power: f32,
+            ) {
+                assert_eq!(
+                    (label, min, max, format, power),
+                    ("Playing", 0., 0.5, "B", 1.)
+                );
+                reference.set(Some(MusicNumber::Float(0.125)));
+                self.events.push("progress".into());
+            }
+        }
+        let runtime = crate::resource::ResourceRuntime::default();
+        let (_, tracks, backend, _) = fixture(&runtime, false);
+        let events = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let textures = crate::render_fbo::source_tests::backend(events);
+        let context = runtime.allocate(&[], || {});
+        let player = std::rc::Rc::new(std::cell::RefCell::new(
+            SourceMusicPlayer::new_native(tracks, backend, textures, context, &runtime).unwrap(),
+        ));
+        let mut ui = Ui {
+            events: Vec::new(),
+            player: player.clone(),
+        };
+        crate::music_player_ui::draw(player.clone(), &mut ui);
+        assert_eq!(
+            ui.events,
+            [
+                "height",
+                "button",
+                "Disable shuffling",
+                "line",
+                "button",
+                "Enable loop",
+                "line",
+                "volume",
+                "button",
+                "Unpause music",
+                "line",
+                "button",
+                "Skip track",
+                "line",
+                "progress"
+            ]
+        );
+        assert!(player.borrow().shuffle && player.borrow().paused);
+        assert!(!player.borrow().repeat);
+        assert_eq!(player.borrow().volume(), 0.25);
+        assert_eq!(player.borrow().progress(), 0.125);
+    }
+    #[test]
+    fn native_constructor_loads_all_original_icons_after_starting_audio_and_stops_on_failure() {
+        let runtime = crate::resource::ResourceRuntime::default();
+        let (_, tracks, backend, audio) = fixture(&runtime, false);
+        audio.lock().unwrap().clear();
+        let events = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let textures = crate::render_fbo::source_tests::backend(events.clone());
+        let context = runtime.allocate(&[], || {});
+        let mut names = Vec::new();
+        let player =
+            SourceMusicPlayer::new_with_icons(tracks.clone(), backend.clone(), &runtime, |name| {
+                assert_eq!(audio.lock().unwrap().last().unwrap(), "play");
+                names.push(name.to_owned());
+                crate::music_player_icon_config::load_icon(
+                    name,
+                    textures.clone(),
+                    context.clone(),
+                    &runtime,
+                )
+            })
+            .unwrap();
+        assert_eq!(
+            names,
+            [
+                "play",
+                "pause",
+                "repeat",
+                "repeat-off",
+                "shuffle",
+                "shuffle-disabled",
+                "skip-next"
+            ]
+        );
+        let icons = player.icons.as_ref().unwrap();
+        for icon in [
+            &icons.play,
+            &icons.pause,
+            &icons.repeat,
+            &icons.repeat_off,
+            &icons.shuffle,
+            &icons.shuffle_disabled,
+            &icons.skip_next,
+        ] {
+            assert!(icon.width > 0 && icon.height > 0);
+            assert_eq!(icon.internal_format, 32856);
+        }
+        names.clear();
+        let failed = SourceMusicPlayer::new_with_icons(tracks, backend, &runtime, |name| {
+            names.push(name.to_owned());
+            if name == "repeat" {
+                return Err("icon failure".into());
+            }
+            crate::music_player_icon_config::load_icon(
+                name,
+                textures.clone(),
+                context.clone(),
+                &runtime,
+            )
+        });
+        assert!(matches!(failed, Err(error) if error == "icon failure"));
+        assert_eq!(names, ["play", "pause", "repeat"]);
+    }
+    #[test]
+    fn native_startup_music_publishes_captured_map_before_fetching_player() {
+        use crate::main_music_load::{NativeOperations, invoke};
+        struct Files;
+        impl crate::main_flat_files::Files for Files {
+            fn is_directory(&self, path: &Path) -> bool {
+                path == Path::new("music")
+            }
+            fn list_files(&self, _: &Path) -> Option<Vec<std::path::PathBuf>> {
+                Some(
+                    ["first/A.ogg", "second/A.ogg"]
+                        .map(std::path::PathBuf::from)
+                        .into(),
+                )
+            }
+        }
+        let runtime = ResourceRuntime::default();
+        let (player, tracks, _, log) = fixture(&runtime, true);
+        assert_eq!(player.current_track, "");
+        let player = Rc::new(RefCell::new(player));
+        let captured = tracks.clone();
+        let late_tracks = tracks.clone();
+        let late_player = player.clone();
+        let calls = Rc::new(std::cell::Cell::new(0));
+        let late_calls = calls.clone();
+        let (_, buffer_backend, buffer_log) = crate::al_buffer::tests::fixture(&runtime);
+        let mut operations = NativeOperations {
+            backend: buffer_backend,
+            runtime: runtime.clone(),
+            publish: Box::new(move |loaded| {
+                captured.borrow_mut().0.extend(loaded);
+                Ok(())
+            }),
+            player: Box::new(move || {
+                assert_eq!(late_tracks.borrow().0.len(), 1);
+                late_calls.set(late_calls.get() + 1);
+                late_player.clone()
+            }),
+        };
+        assert_eq!(calls.get(), 0);
+        invoke(0, Ok(()), Path::new("music"), &Files, &mut operations).unwrap();
+        assert_eq!(calls.get(), 1);
+        assert_eq!(player.borrow().current_track, "A");
+        assert!(player.borrow().queue.is_empty());
+        assert!(!player.borrow().paused);
+        let buffer = tracks.borrow().0[0].1.clone();
+        assert!(Arc::ptr_eq(
+            &player.borrow().current_buffer().unwrap(),
+            &buffer
+        ));
+        assert_eq!(
+            *log.lock().unwrap(),
+            vec![
+                "generate".to_owned(),
+                "stop".into(),
+                "query:4118".into(),
+                format!("queue:{}", buffer.id()),
+                "play".into()
+            ]
+        );
+        assert_eq!(
+            buffer_log
+                .lock()
+                .unwrap()
+                .iter()
+                .filter(|s| s.starts_with("file:"))
+                .count(),
+            2
+        );
+    }
     use crate::{al_buffer::AlBuffer, al_source::AlSourceBackend, resource::ResourceRuntime};
     use std::{
         cell::RefCell,

@@ -30,6 +30,65 @@ pub(crate) struct ShadedModel {
     pub shader: Arc<dyn ModelProgram>,
 }
 impl ShadedModel {
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_buffers(
+        indices: &crate::mem_util::NativeBuffer<i32>,
+        vertices: &crate::mem_util::NativeBuffer<f32>,
+        component_size: i32,
+        shader: Arc<dyn ModelProgram>,
+        render_style: i32,
+        buffer_backend: Arc<std::sync::Mutex<dyn crate::vbo::BufferBackend>>,
+        vao_backend: Arc<std::sync::Mutex<dyn crate::vao::VertexArrayBackend>>,
+        backend: Arc<std::sync::Mutex<dyn crate::model::ModelBackend>>,
+        context: ResourceHandle,
+        runtime: &crate::resource::ResourceRuntime,
+    ) -> Self {
+        Self::new(
+            SourceModel::from_buffers(
+                indices,
+                vertices,
+                component_size,
+                render_style,
+                buffer_backend,
+                vao_backend,
+                backend,
+                context,
+                runtime,
+            ),
+            shader,
+        )
+    }
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_arrays(
+        indices: &[i32],
+        vertices: &[f32],
+        component_size: i32,
+        shader: Arc<dyn ModelProgram>,
+        render_style: i32,
+        buffer_backend: Arc<std::sync::Mutex<dyn crate::vbo::BufferBackend>>,
+        vao_backend: Arc<std::sync::Mutex<dyn crate::vao::VertexArrayBackend>>,
+        backend: Arc<std::sync::Mutex<dyn crate::model::ModelBackend>>,
+        context: ResourceHandle,
+        runtime: &crate::resource::ResourceRuntime,
+    ) -> Self {
+        let indices = crate::mem_util::wrap_int_buffer(indices);
+        let vertices = crate::mem_util::wrap_float_buffer(vertices);
+        Self::from_buffers(
+            &indices,
+            &vertices,
+            component_size,
+            shader,
+            render_style,
+            buffer_backend,
+            vao_backend,
+            backend,
+            context,
+            runtime,
+        )
+    }
+    pub fn shader(&self) -> Arc<dyn ModelProgram> {
+        self.shader.clone()
+    }
     pub fn new(model: SourceModel, shader: Arc<dyn ModelProgram>) -> Self {
         shader.validate(model.vao.id());
         shader.register_dependent(&model.resource_handle());
@@ -51,7 +110,7 @@ impl IDrawable for ShadedModel {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::{
         model::ModelBackend,
@@ -61,7 +120,7 @@ mod tests {
     };
     use std::sync::Mutex;
     type Log = Arc<Mutex<Vec<String>>>;
-    struct Backend(Log);
+    pub(crate) struct Backend(pub(crate) Log);
     impl Backend {
         fn log(&self, event: impl Into<String>) {
             self.0.lock().unwrap().push(event.into());
@@ -172,6 +231,233 @@ mod tests {
         );
         log.lock().unwrap().clear();
         model.render();
+        assert_eq!(
+            *log.lock().unwrap(),
+            [
+                "vao:21",
+                "enable:0",
+                "draw:4:3:5125:0",
+                "disable:0",
+                "vao:0"
+            ]
+        );
+    }
+    #[test]
+    fn fullscreen_source_uv_allocation_validation_and_attribute_draw_order() {
+        let runtime = ResourceRuntime::default();
+        let context = runtime.allocate(&[], || {});
+        let log = Arc::new(Mutex::new(vec![]));
+        let backend = Arc::new(Mutex::new(Backend(log.clone())));
+        let shader = Arc::new(Program {
+            log: log.clone(),
+            lifetime: runtime.allocate(&[], || {}),
+        });
+        let fullscreen = crate::fullscreen::Fullscreen::source(
+            shader,
+            backend.clone(),
+            backend.clone(),
+            backend,
+            context,
+            &runtime,
+        );
+        let setup = log.lock().unwrap().clone();
+        assert_eq!(
+            setup
+                .iter()
+                .filter(|event| *event == "create_buffer")
+                .count(),
+            3
+        );
+        let vao = setup
+            .iter()
+            .position(|event| event == "create_vao")
+            .unwrap();
+        assert_eq!(
+            setup[..vao]
+                .iter()
+                .filter(|event| *event == "create_buffer")
+                .count(),
+            3
+        );
+        let validation = setup
+            .iter()
+            .position(|event| event == "validate:21")
+            .unwrap();
+        let uv = setup
+            .iter()
+            .position(|event| event == "pointer:1:2:5126:false:0:0")
+            .unwrap();
+        assert!(validation < uv);
+        assert_eq!(fullscreen.texture_coords().size, 8);
+        assert!(Arc::ptr_eq(
+            &fullscreen.texture_coords(),
+            &fullscreen.texture_coords()
+        ));
+        log.lock().unwrap().clear();
+        fullscreen.render();
+        assert_eq!(
+            *log.lock().unwrap(),
+            [
+                "start",
+                "vao:21",
+                "enable:0",
+                "enable:1",
+                "draw:4:6:5125:0",
+                "disable:1",
+                "disable:0",
+                "vao:0",
+                "stop"
+            ]
+        );
+        log.lock().unwrap().clear();
+        fullscreen.render_shaderless();
+        assert_eq!(
+            *log.lock().unwrap(),
+            [
+                "vao:21",
+                "enable:0",
+                "enable:1",
+                "draw:4:6:5125:0",
+                "disable:1",
+                "disable:0",
+                "vao:0"
+            ]
+        );
+    }
+    #[test]
+    fn uv_buffer_constructor_preserves_windows_capacities_and_render_style() {
+        let runtime = ResourceRuntime::default();
+        let context = runtime.allocate(&[], || {});
+        let log = Arc::new(Mutex::new(vec![]));
+        let backend = Arc::new(Mutex::new(Backend(log.clone())));
+        let shader = Arc::new(Program {
+            log: log.clone(),
+            lifetime: runtime.allocate(&[], || {}),
+        });
+        let mut indices = crate::mem_util::wrap_int_buffer(&[0, 1, 2, 3]);
+        indices.set_position(1).unwrap();
+        indices.set_limit(3).unwrap();
+        let mut vertices = crate::mem_util::wrap_float_buffer(&[0., 1., 2., 3., 4., 5.]);
+        vertices.set_position(2).unwrap();
+        let mut uvs = crate::mem_util::wrap_float_buffer(&[0., 1., 2., 3., 4., 5., 6., 7.]);
+        uvs.set_position(1).unwrap();
+        uvs.set_limit(5).unwrap();
+        let model = crate::uv_model::SourceUVModel::from_buffers(
+            &indices,
+            &vertices,
+            2,
+            &uvs,
+            shader,
+            1,
+            backend.clone(),
+            backend.clone(),
+            backend,
+            context,
+            &runtime,
+        );
+        assert_eq!(model.shaded.model.indices.size, 4);
+        assert_eq!(model.shaded.model.vertices.size, 6);
+        assert_eq!(model.texture_coords().size, 8);
+        let uploads: Vec<_> = log
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|e| e.starts_with("upload:"))
+            .cloned()
+            .collect();
+        assert_eq!(
+            uploads,
+            [
+                "upload:34962:5126:4:35044",
+                "upload:34963:5124:2:35044",
+                "upload:34962:5126:4:35044"
+            ]
+        );
+        assert_eq!((indices.position(), indices.limit()), (1, 3));
+        assert_eq!((vertices.position(), vertices.limit()), (2, 6));
+        assert_eq!((uvs.position(), uvs.limit()), (1, 5));
+        log.lock().unwrap().clear();
+        model.render();
+        assert!(log.lock().unwrap().iter().any(|e| e == "draw:1:4:5125:0"));
+    }
+    #[test]
+    fn shaded_constructor_overloads_keep_buffer_window_draw_capacity_and_shader_identity() {
+        let runtime = ResourceRuntime::default();
+        let context = runtime.allocate(&[], || {});
+        let log = Arc::new(Mutex::new(vec![]));
+        let backend = Arc::new(Mutex::new(Backend(log.clone())));
+        let shader: Arc<dyn ModelProgram> = Arc::new(Program {
+            log: log.clone(),
+            lifetime: runtime.allocate(&[], || {}),
+        });
+        let mut indices = crate::mem_util::wrap_int_buffer(&[0, 1, 2, 3]);
+        indices.set_position(2).unwrap();
+        let mut vertices = crate::mem_util::wrap_float_buffer(&[0., 1., 2., 3., 4., 5., 6., 7.]);
+        vertices.set_position(1).unwrap();
+        vertices.set_limit(7).unwrap();
+        let buffered = ShadedModel::from_buffers(
+            &indices,
+            &vertices,
+            2,
+            shader.clone(),
+            1,
+            backend.clone(),
+            backend.clone(),
+            backend.clone(),
+            context.clone(),
+            &runtime,
+        );
+        assert!(Arc::ptr_eq(&buffered.shader(), &shader));
+        assert_eq!(
+            (buffered.model.indices.size, buffered.model.vertices.size),
+            (4, 8)
+        );
+        let setup = log.lock().unwrap().clone();
+        assert_eq!(
+            setup
+                .iter()
+                .filter(|e| e.starts_with("upload:"))
+                .cloned()
+                .collect::<Vec<_>>(),
+            ["upload:34962:5126:6:35044", "upload:34963:5124:2:35044"]
+        );
+        assert_eq!(&setup[setup.len() - 2..], ["validate:21", "dependent"]);
+        assert_eq!((indices.position(), indices.limit()), (2, 4));
+        assert_eq!((vertices.position(), vertices.limit()), (1, 7));
+        log.lock().unwrap().clear();
+        buffered.render();
+        assert_eq!(
+            *log.lock().unwrap(),
+            [
+                "start",
+                "vao:21",
+                "enable:0",
+                "draw:1:4:5125:0",
+                "disable:0",
+                "vao:0",
+                "stop"
+            ]
+        );
+        log.lock().unwrap().clear();
+        let arrays = ShadedModel::from_arrays(
+            &[0, 1, 0],
+            &[0., 1., 2., 3.],
+            2,
+            shader.clone(),
+            4,
+            backend.clone(),
+            backend.clone(),
+            backend,
+            context,
+            &runtime,
+        );
+        assert!(Arc::ptr_eq(&arrays.shader(), &shader));
+        assert_eq!(
+            (arrays.model.indices.size, arrays.model.vertices.size),
+            (3, 4)
+        );
+        log.lock().unwrap().clear();
+        arrays.render_shaderless();
         assert_eq!(
             *log.lock().unwrap(),
             [

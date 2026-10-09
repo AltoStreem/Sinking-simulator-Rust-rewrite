@@ -16,14 +16,22 @@ use bevy::{
     },
 };
 pub(crate) struct RenderFboPlugin;
+pub(crate) struct MipmapPipelinePlugin;
+impl Plugin for MipmapPipelinePlugin {
+    fn build(&self,app:&mut App) {
+        if let Some(render)=app.get_sub_app_mut(RenderApp) {
+            render.add_systems(RenderStartup,initialize_mipmaps);
+        }
+    }
+}
 impl Plugin for RenderFboPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ExtractResourcePlugin::<ScreenFbo>::default());
+        if !app.is_plugin_added::<MipmapPipelinePlugin>() {app.add_plugins(MipmapPipelinePlugin);}
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
         render_app
-            .add_systems(RenderStartup, initialize_mipmaps)
             .add_systems(
                 Core2d,
                 regenerate_mipmaps.after(bevy::core_pipeline::upscaling::upscaling),
@@ -31,10 +39,15 @@ impl Plugin for RenderFboPlugin {
     }
 }
 #[derive(Resource)]
-struct MipmapPipeline {
+pub(crate) struct MipmapPipeline {
     layout: BindGroupLayoutDescriptor,
     pipeline: CachedComputePipelineId,
     sampler: Sampler,
+}
+impl MipmapPipeline {
+    pub(crate) fn is_ready(&self,cache:&PipelineCache)->bool {
+        cache.get_compute_pipeline(self.pipeline).is_some()
+    }
 }
 fn initialize_mipmaps(
     mut commands: Commands,
@@ -137,9 +150,13 @@ fn regenerate_mipmaps(
     let Some(pipeline) = pipeline else {
         return;
     };
-    let Some(compute) = cache.get_compute_pipeline(pipeline.pipeline) else {
-        return;
-    };
+    encode_texture_mips(destination,&pipeline,&cache,&mut context);
+}
+
+pub(crate) fn encode_texture_mips(destination:&GpuImage,pipeline:&MipmapPipeline,
+    cache:&PipelineCache,context:&mut RenderContext)->bool {
+    let Some(compute)=cache.get_compute_pipeline(pipeline.pipeline) else {return false;};
+    let size=destination.texture_descriptor.size;
     let layout = cache.get_bind_group_layout(&pipeline.layout);
     for level in 1..destination.texture_descriptor.mip_level_count {
         let previous = destination.texture.create_view(&TextureViewDescriptor {
@@ -171,6 +188,7 @@ fn regenerate_mipmaps(
             1,
         );
     }
+    true
 }
 
 /// Source RenderFBO allocation/resize path; the active Bevy mipmap plugin remains above.
@@ -320,7 +338,7 @@ impl SourceRenderFbo {
 }
 
 #[cfg(test)]
-mod source_tests {
+pub(crate) mod source_tests {
     use super::SourceRenderFbo;
     use crate::{
         fbo::FramebufferBackend,
@@ -330,7 +348,7 @@ mod source_tests {
     };
     use std::sync::{Arc, Mutex};
     type Log = Arc<Mutex<Vec<String>>>;
-    struct Backend {
+    pub(crate) struct Backend {
         log: Log,
         next_texture: i32,
         bound: i32,
@@ -467,7 +485,7 @@ mod source_tests {
             self.log(format!("delete_rb:{id}"));
         }
     }
-    fn backend(log: Log) -> Arc<Mutex<Backend>> {
+    pub(crate) fn backend(log: Log) -> Arc<Mutex<Backend>> {
         Arc::new(Mutex::new(Backend {
             log,
             next_texture: 0,

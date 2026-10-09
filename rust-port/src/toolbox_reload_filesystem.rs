@@ -67,17 +67,23 @@ impl PartialEq for LoadedThumbnail {
 pub(crate) struct FilesystemReloadBackend {
     pub working_directory: PathBuf,
     steam: Box<dyn SteamFolderAccess>,
+    local_root:Option<PathBuf>,
 }
 impl FilesystemReloadBackend {
+    /// Map the original ./ships root to extracted assets without changing reload logic.
+    pub(crate) fn with_local_root(working_directory:PathBuf,root:PathBuf,steam:Box<dyn SteamFolderAccess>)->Self {
+        Self {working_directory,steam,local_root:Some(root)}
+    }
     pub fn new(working_directory: PathBuf, steam: Box<dyn SteamFolderAccess>) -> Self {
         Self {
             working_directory,
             steam,
+            local_root:None,
         }
     }
 }
 // Preserve UTF-16 OS path units, including unpaired surrogates, when removing Rust's canonical prefix.
-fn strip_verbatim_prefix(path: PathBuf) -> PathBuf {
+pub(crate) fn strip_verbatim_prefix(path: PathBuf) -> PathBuf {
     #[cfg(windows)]
     {
         use std::os::windows::ffi::{OsStrExt, OsStringExt};
@@ -120,7 +126,7 @@ impl ReloadBackend for FilesystemReloadBackend {
     type Resource = ShipResourceFile;
     type Thumbnail = LoadedThumbnail;
     fn local_ship_root(&mut self, path: &str) -> SourceFile {
-        SourceFile::new(self.working_directory.join(path))
+        SourceFile::new(self.local_root.clone().unwrap_or_else(||self.working_directory.join(path)))
     }
     fn steam_running(&mut self) -> bool {
         self.steam.is_running()

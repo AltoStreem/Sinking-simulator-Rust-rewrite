@@ -28,7 +28,7 @@ pub struct GuiKt<T: ?Sized, F: ?Sized> {
     current_tool_index: i32,
     f18: Option<Rc<F>>,
     f12: Option<Rc<F>>,
-    last_hovered: HashMap<i32, i64>,
+    descriptions: DescriptionState,
 }
 impl<T: ?Sized, F: ?Sized> Default for GuiKt<T, F> {
     fn default() -> Self {
@@ -38,7 +38,7 @@ impl<T: ?Sized, F: ?Sized> Default for GuiKt<T, F> {
             current_tool_index: 0,
             f18: None,
             f12: None,
-            last_hovered: HashMap::new(),
+            descriptions: DescriptionState::default(),
         }
     }
 }
@@ -90,6 +90,16 @@ impl<T: ?Sized, F: ?Sized> GuiKt<T, F> {
         self.f12 = font;
     }
     pub fn description(&mut self, desc: &str, backend: &mut impl DescriptionBackend) {
+        self.descriptions.description(desc, backend);
+    }
+}
+/// Shared source description timer, usable by the native and active renderers.
+#[derive(Default)]
+pub(crate) struct DescriptionState {
+    last_hovered: HashMap<i32, i64>,
+}
+impl DescriptionState {
+    pub(crate) fn description(&mut self, desc: &str, backend: &mut impl DescriptionBackend) {
         let id = backend.item_id();
         let last = *self
             .last_hovered

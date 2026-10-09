@@ -172,11 +172,11 @@ impl std::fmt::Display for ShaderProgram {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::shader::ShaderBackend;
     type Events = Arc<Mutex<Vec<String>>>;
-    struct Backend(Events);
+    pub(crate) struct Backend(pub(crate) Events);
     impl ShaderBackend for Backend {
         fn create_shader(&mut self, kind: i32) -> i32 {
             kind
@@ -275,7 +275,7 @@ mod tests {
             self.0.lock().unwrap().push(format!("delete program:{id}"));
         }
     }
-    fn program(
+    pub(crate) fn program(
         runtime: &ResourceRuntime,
         context: ResourceHandle,
         events: &Events,

@@ -78,6 +78,7 @@ pub(crate) fn sync_frame(
     mut simulation: ResMut<crate::Simulation>,
     mut windows: Query<&mut Window>,
     _thread: Option<NonSend<crate::resource::ResourceMainThread>>,
+    native_window: Option<NonSend<crate::window_bevy::LiveWindow>>,
 ) {
     let Ok(mut window) = windows.single_mut() else {
         return;
@@ -92,28 +93,20 @@ pub(crate) fn sync_frame(
         .map(|receiver| receiver.lock().unwrap().try_iter().collect())
         .unwrap_or_default();
     for (resources, speed) in reports {
-        window.title = format!(
-            "Resources: {:>5}% usage, {:>5}% speed",
-            (resources * 100.).round() as i32,
-            (speed * 100.).round() as i32
-        );
+        window.title = crate::main_counter_title::title(resources, speed);
+        if let Some(live)=&native_window {live.source.set_title(window.title.clone());}
     }
     if counter.source.is_none()
         && counter.running.load(std::sync::atomic::Ordering::SeqCst)
         && counter.last_report.elapsed() >= Duration::from_secs(1)
     {
         let (resources, speed) = counter.take_averages();
-        window.title = format!(
-            "Resources: {:>5}% usage, {:>5}% speed",
-            (resources * 100.0).round() as i32,
-            (speed * 100.0).round() as i32
-        );
+        window.title = crate::main_counter_title::title(resources, speed);
+        if let Some(live)=&native_window {live.source.set_title(window.title.clone());}
         counter.last_report = Instant::now();
     }
-    // Main.java advances after the scene and GUI have consumed the current time.
-    if !simulation.paused {
-        simulation.elapsed += REFERENCE;
-    }
+    // Main.java advances once after every visible frame, independent of simulation controls.
+    simulation.elapsed += REFERENCE;
 }
 #[cfg(test)]
 mod tests {
@@ -147,7 +140,27 @@ mod tests {
 mod frame_tests {
     use super::*;
     #[test]
-    fn active_scene_clock_advances_once_per_frame_and_respects_pause() {
+    fn actual_counter_updates_translated_and_native_window_titles_together() {
+        let mut app=App::new();
+        app.add_plugins(MinimalPlugins)
+            .add_message::<bevy::window::WindowEvent>().add_message::<bevy::app::AppExit>()
+            .init_resource::<TimeSync>().init_resource::<crate::Simulation>()
+            .add_plugins(crate::window_bevy::WindowBridgePlugin)
+            .add_systems(Last,sync_frame);
+        let entity=app.world_mut().spawn((Window::default(),bevy::window::PrimaryWindow)).id();
+        {
+            let mut counter=app.world_mut().resource_mut::<TimeSync>();
+            counter.last=Instant::now()-Duration::from_millis(50);
+            counter.last_report=Instant::now()-Duration::from_secs(2);
+        }
+        app.update();
+        let source=&app.world().non_send_resource::<crate::window_bevy::LiveWindow>().source;
+        let title=&app.world().get::<Window>(entity).unwrap().title;
+        assert!(title.starts_with("Resources:"));
+        assert_eq!(&source.title(),title);
+    }
+    #[test]
+    fn active_scene_clock_advances_once_per_visible_frame_including_pause() {
         let mut app = App::new();
         app.init_resource::<TimeSync>()
             .init_resource::<crate::Simulation>();
@@ -163,11 +176,10 @@ mod frame_tests {
             app.world().resource::<crate::Simulation>().elapsed,
             REFERENCE + REFERENCE
         );
-        app.world_mut().resource_mut::<crate::Simulation>().paused = true;
         app.update();
         assert_eq!(
             app.world().resource::<crate::Simulation>().elapsed,
-            REFERENCE + REFERENCE
+            REFERENCE + REFERENCE + REFERENCE
         );
         assert_eq!(app.world().resource::<TimeSync>().resources.len(), 3);
     }

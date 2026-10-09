@@ -141,10 +141,22 @@ impl SourceModel {
 }
 impl crate::i_drawable::IDrawable for SourceModel {
     fn render(&self) {
+        self.render_attributes(&[]);
+    }
+}
+impl SourceModel {
+    /// Source subclass enableAttributes/disableAttributes virtual hooks.
+    pub(crate) fn render_attributes(&self, additional: &[i32]) {
         self.vao.bind();
         let mut backend = self.backend.lock().unwrap();
         backend.enable_attribute(0);
+        for &index in additional {
+            backend.enable_attribute(index);
+        }
         backend.draw_elements(self.render_style, self.indices.size, 5125, 0);
+        for &index in additional.iter().rev() {
+            backend.disable_attribute(index);
+        }
         backend.disable_attribute(0);
         drop(backend);
         self.vao.unbind();
@@ -164,11 +176,35 @@ impl SourceModel {
         context: crate::resource::ResourceHandle,
         runtime: &crate::resource::ResourceRuntime,
     ) -> Self {
-        let verts = crate::mem_util::wrap_float_buffer(vertices);
         let inds = crate::mem_util::wrap_int_buffer(indices);
+        let verts = crate::mem_util::wrap_float_buffer(vertices);
+        Self::from_buffers(
+            &inds,
+            &verts,
+            component_size,
+            render_style,
+            buffer_backend,
+            vao_backend,
+            backend,
+            context,
+            runtime,
+        )
+    }
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_buffers(
+        indices: &crate::mem_util::NativeBuffer<i32>,
+        vertices: &crate::mem_util::NativeBuffer<f32>,
+        component_size: i32,
+        render_style: i32,
+        buffer_backend: std::sync::Arc<std::sync::Mutex<dyn crate::vbo::BufferBackend>>,
+        vao_backend: std::sync::Arc<std::sync::Mutex<dyn crate::vao::VertexArrayBackend>>,
+        backend: std::sync::Arc<std::sync::Mutex<dyn ModelBackend>>,
+        context: crate::resource::ResourceHandle,
+        runtime: &crate::resource::ResourceRuntime,
+    ) -> Self {
         let vertices = std::sync::Arc::new(crate::vbo::Vbo::from_float_buffer(
             34962,
-            &verts,
+            vertices,
             35044,
             buffer_backend.clone(),
             context.clone(),
@@ -176,7 +212,7 @@ impl SourceModel {
         ));
         let indices = std::sync::Arc::new(crate::vbo::Vbo::from_int_buffer(
             34963,
-            &inds,
+            indices,
             35044,
             buffer_backend,
             context.clone(),

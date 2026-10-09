@@ -1,6 +1,18 @@
 //! Window.java callback dispatch, native property queries and event-loop sequencing.
 //! Native construction/context/icon setup remains pending; this wraps an existing handle.
 #![allow(dead_code)]
+#[path = "window_cursor_pos_callback.rs"]
+mod cursor_pos_callback;
+#[path = "window_misc_callbacks.rs"]
+mod misc_callbacks;
+#[path = "window_mouse_button_callback.rs"]
+mod mouse_button_callback;
+#[path = "window_scroll_callback.rs"]
+mod scroll_callback;
+#[path = "window_size_callback.rs"]
+mod size_callback;
+#[path = "window_start_refresh.rs"]
+mod start_refresh;
 use crate::{
     input_handler::InputHandler,
     resource::{ResourceHandle, ResourceRuntime},
@@ -162,173 +174,49 @@ impl SourceWindow {
         }
     }
     pub fn emit_position(&self, xpos: i32, ypos: i32) {
-        for callback in self.position_callbacks.borrow().iter() {
-            callback(self, xpos, ypos);
-        }
-        for stack in self.handler_stacks.borrow().iter() {
-            let mut blocked = false;
-            for handler in stack {
-                blocked = handler.borrow_mut().on_position(blocked, self, ypos, xpos);
-            }
-        }
+        misc_callbacks::position(self, xpos, ypos);
     }
     pub fn emit_size(&self, width: i32, height: i32) {
-        for callback in self.size_callbacks.borrow().iter() {
-            callback(self, width, height);
-        }
-        for stack in self.handler_stacks.borrow().iter() {
-            let mut blocked = false;
-            for handler in stack {
-                blocked = handler.borrow_mut().on_size(blocked, self, height, width);
-            }
-        }
+        size_callback::invoke(self, width, height);
     }
     pub fn emit_close(&self) {
-        for callback in self.close_callbacks.borrow().iter() {
-            callback(self);
-        }
-        for stack in self.handler_stacks.borrow().iter() {
-            let mut blocked = false;
-            for handler in stack {
-                blocked = handler.borrow_mut().on_close(blocked, self);
-            }
-        }
+        misc_callbacks::close(self);
     }
     pub fn emit_refresh(&self) {
-        for callback in self.refresh_callbacks.borrow().iter() {
-            callback(self);
-        }
-        for stack in self.handler_stacks.borrow().iter() {
-            let mut blocked = false;
-            for handler in stack {
-                blocked = handler.borrow_mut().on_refresh(blocked, self);
-            }
-        }
+        misc_callbacks::refresh(self);
     }
     pub fn emit_focus(&self, focus: bool) {
-        for callback in self.focus_callbacks.borrow().iter() {
-            callback(self, focus);
-        }
-        for stack in self.handler_stacks.borrow().iter() {
-            let mut blocked = false;
-            for handler in stack {
-                blocked = handler.borrow_mut().on_focus(blocked, self, focus);
-            }
-        }
+        misc_callbacks::focus(self, focus);
     }
     pub fn emit_iconify(&self, iconify: bool) {
-        for callback in self.iconify_callbacks.borrow().iter() {
-            callback(self, iconify);
-        }
+        misc_callbacks::iconify(self, iconify);
     }
     pub fn emit_framebuffer_size(&self, width: i32, height: i32) {
-        for callback in self.framebuffer_size_callbacks.borrow().iter() {
-            callback(self, width, height);
-        }
-        for stack in self.handler_stacks.borrow().iter() {
-            let mut blocked = false;
-            for handler in stack {
-                blocked = handler
-                    .borrow_mut()
-                    .on_framebuffer_size(blocked, self, width, height);
-            }
-        }
+        misc_callbacks::framebuffer_size(self, width, height);
     }
     pub fn emit_key(&self, key: i32, scancode: i32, action: i32, mods: i32) {
-        for callback in self.key_callbacks.borrow().iter() {
-            callback(self, key, scancode, action, mods);
-        }
-        for stack in self.handler_stacks.borrow().iter() {
-            let mut blocked = false;
-            for handler in stack {
-                blocked = handler
-                    .borrow_mut()
-                    .on_key(blocked, self, key, scancode, action, mods);
-            }
-        }
+        misc_callbacks::key(self, key, scancode, action, mods);
     }
     pub fn emit_char(&self, codepoint: i32) {
-        for callback in self.char_callbacks.borrow().iter() {
-            callback(self, codepoint);
-        }
-        for stack in self.handler_stacks.borrow().iter() {
-            let mut blocked = false;
-            for handler in stack {
-                blocked = handler.borrow_mut().on_char(blocked, self, codepoint);
-            }
-        }
+        misc_callbacks::character(self, codepoint);
     }
     pub fn emit_char_mods(&self, codepoint: i32, mods: i32) {
-        for callback in self.char_mods_callbacks.borrow().iter() {
-            callback(self, codepoint, mods);
-        }
-        for stack in self.handler_stacks.borrow().iter() {
-            let mut blocked = false;
-            for handler in stack {
-                blocked = handler
-                    .borrow_mut()
-                    .on_char_mods(blocked, self, codepoint, mods);
-            }
-        }
+        misc_callbacks::character_mods(self, codepoint, mods);
     }
     pub fn emit_mouse_button(&self, button: i32, action: i32, mods: i32) {
-        for callback in self.mouse_button_callbacks.borrow().iter() {
-            callback(self, button, action, mods);
-        }
-        for stack in self.handler_stacks.borrow().iter() {
-            let mut blocked = false;
-            for handler in stack {
-                blocked = handler
-                    .borrow_mut()
-                    .on_mouse_button(blocked, self, button, action, mods);
-            }
-        }
+        mouse_button_callback::invoke(self, button, action, mods);
     }
     pub fn emit_cursor_pos(&self, xpos: f64, ypos: f64) {
-        for callback in self.cursor_pos_callbacks.borrow().iter() {
-            callback(self, xpos, ypos);
-        }
-        for stack in self.handler_stacks.borrow().iter() {
-            let mut blocked = false;
-            for handler in stack {
-                blocked = handler
-                    .borrow_mut()
-                    .on_cursor_pos(blocked, self, xpos, ypos);
-            }
-        }
+        cursor_pos_callback::invoke(self, xpos, ypos);
     }
     pub fn emit_cursor_enter(&self, enter: bool) {
-        for callback in self.cursor_enter_callbacks.borrow().iter() {
-            callback(self, enter);
-        }
-        for stack in self.handler_stacks.borrow().iter() {
-            let mut blocked = false;
-            for handler in stack {
-                blocked = handler.borrow_mut().on_cursor_enter(blocked, self, enter);
-            }
-        }
+        misc_callbacks::cursor_enter(self, enter);
     }
     pub fn emit_scroll(&self, x: f64, y: f64) {
-        for callback in self.scroll_callbacks.borrow().iter() {
-            callback(self, x, y);
-        }
-        for stack in self.handler_stacks.borrow().iter() {
-            let mut blocked = false;
-            for handler in stack {
-                blocked = handler.borrow_mut().on_scroll(blocked, self, x, y);
-            }
-        }
+        scroll_callback::invoke(self, x, y);
     }
     pub fn emit_drop(&self, data: &[String]) {
-        for callback in self.drop_callbacks.borrow().iter() {
-            callback(self, data);
-        }
-        for stack in self.handler_stacks.borrow().iter() {
-            let mut blocked = false;
-            for handler in stack {
-                blocked = handler.borrow_mut().on_drop(blocked, self, data);
-            }
-        }
+        misc_callbacks::drop(self, data);
     }
     pub fn dispatch(&self, event: WindowEvent) {
         match event {
@@ -402,6 +290,9 @@ impl SourceWindow {
     pub fn close(&self) {
         self.lifetime.close();
     }
+    pub(crate) fn register_dependent(&self, resource: &ResourceHandle) {
+        self.lifetime.register_dependent(resource);
+    }
     pub fn freed(&self) -> bool {
         self.lifetime.freed()
     }
@@ -430,13 +321,9 @@ impl SourceWindow {
     }
     pub fn start(self: &Rc<Self>, clear: [f32; 4], draw: Rc<dyn Fn(&SourceWindow)>) {
         self.backend.lock().unwrap().set_clear_color(clear);
-        let refresh = draw.clone();
-        let original = self.clone();
-        self.refresh_callbacks.borrow_mut().push(Rc::new(move |_| {
-            original.backend.lock().unwrap().clear(17664);
-            refresh(&original);
-            original.backend.lock().unwrap().swap_buffers(original.id);
-        }));
+        self.refresh_callbacks
+            .borrow_mut()
+            .push(start_refresh::create(self.clone(), draw.clone()));
         while !self.should_close() {
             self.backend.lock().unwrap().clear(17664);
             draw(self);

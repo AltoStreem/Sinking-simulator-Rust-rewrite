@@ -34,29 +34,105 @@ pub(crate) fn ship_texture(rgba: RgbaImage) -> Image {
         TextureFormat::Rgba8UnormSrgb,
         RenderAssetUsages::default(),
     );
-    let mut levels = 1;
-    let mut data = rgba.as_raw().clone();
-    let mut previous = rgba;
-    while previous.width() > 1 || previous.height() > 1 {
-        let next = image::imageops::resize(
-            &previous,
-            (previous.width() / 2).max(1),
-            (previous.height() / 2).max(1),
-            image::imageops::FilterType::Triangle,
-        );
-        data.extend_from_slice(next.as_raw());
-        previous = next;
-        levels += 1;
-    }
+    #[cfg(windows)]
+    let (data,levels)=crate::native_gl_mips::generate(&rgba)
+        .expect("Source RGBA8 OpenGL mip generation failed");
+    // Portable approximation; native-driver pixel parity is unproven here.
+    #[cfg(not(windows))]
+    let (data,levels)={
+        let mut levels=1;let mut data=rgba.as_raw().clone();let mut previous=rgba;
+        while previous.width()>1 || previous.height()>1 {
+            let next=encoded_mip_level(&previous);data.extend_from_slice(next.as_raw());
+            previous=next;levels+=1;
+        }
+        (data,levels)
+    };
     texture.data = Some(data);
     texture.texture_descriptor.mip_level_count = levels;
     texture.sampler = ship_sampler();
     texture
 }
 
+/// glGenerateMipmap's encoded bilinear center reduction, checked against the
+/// source OpenGL operation on the native Radeon driver. Odd-size interpolation
+/// may differ by one byte between CPU float math and driver filter precision.
+pub(crate) fn encoded_mip_level(previous:&RgbaImage)->RgbaImage {
+    let width=(previous.width()/2).max(1);let height=(previous.height()/2).max(1);
+    RgbaImage::from_fn(width,height,|x,y| {
+        let sx=(x as f32+0.5)*previous.width() as f32/width as f32-0.5;
+        let sy=(y as f32+0.5)*previous.height() as f32/height as f32-0.5;
+        let ix=sx.floor() as i32;let iy=sy.floor() as i32;
+        let fx=sx-sx.floor();let fy=sy-sy.floor();
+        let at=|x:i32,y:i32|previous.get_pixel(x.clamp(0,previous.width() as i32-1) as u32,
+            y.clamp(0,previous.height() as i32-1) as u32);
+        image::Rgba(std::array::from_fn(|channel| {
+            let top=at(ix,iy)[channel] as f32*(1.0-fx)+at(ix+1,iy)[channel] as f32*fx;
+            let bottom=at(ix,iy+1)[channel] as f32*(1.0-fx)+at(ix+1,iy+1)[channel] as f32*fx;
+            (top*(1.0-fy)+bottom*fy).round().clamp(0.0,255.0) as u8
+        }))
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn generated_encoded_mips_follow_original_gl_driver_readbacks() {
+        if let Ok(destination)=std::env::var("SS2_SOURCE_ICON_PROBE_INPUT") {
+            let mut inputs=Vec::new();
+            for folder in ["assets/icons","assets/icons/music"] {
+                for entry in std::fs::read_dir(folder).unwrap() {
+                    let path=entry.unwrap().path();
+                    if path.extension().is_none_or(|extension|extension!="png") {continue;}
+                    let rgba=image::open(&path).unwrap().to_rgba8();
+                    let texture=ship_texture(rgba.clone());let mut width=rgba.width();let mut height=rgba.height();
+                    let mut levels=Vec::new();let mut offset=0;
+                    loop {
+                        let length=(width*height*4) as usize;
+                        levels.push(serde_json::json!({"Width":width,"Height":height,
+                            "Rgba":&texture.data.as_ref().unwrap()[offset..offset+length]}));
+                        if width==1 && height==1 {break;}
+                        offset+=length;width=(width/2).max(1);height=(height/2).max(1);
+                    }
+                    inputs.push(serde_json::json!({"Name":path.to_string_lossy(),"Width":rgba.width(),
+                        "Height":rgba.height(),"Input":rgba.as_raw(),"ExpectedLevels":levels}));
+                }
+            }
+            std::fs::write(destination,serde_json::to_vec(&inputs).unwrap()).unwrap();
+            println!("Exported {} original icon inputs and native mip expectations for GL comparison",inputs.len());
+        }
+        let cases:serde_json::Value=serde_json::from_str(include_str!("../tools/fixtures/source-mipmap-gl-reference.json")).unwrap();
+        for case in cases.as_array().unwrap() {
+            let levels=case["Levels"].as_array().unwrap();
+            let pixels=|level:&serde_json::Value|level["Rgba"].as_array().unwrap().iter()
+                .map(|value|value.as_u64().unwrap() as u8).collect::<Vec<_>>();
+            let base=RgbaImage::from_raw(case["Width"].as_u64().unwrap() as u32,
+                case["Height"].as_u64().unwrap() as u32,pixels(&levels[0])).unwrap();
+            let mip_texture=ship_texture(base.clone());
+            assert_eq!(mip_texture.texture_descriptor.mip_level_count,levels.len() as u32);
+            let mut offset=0;let mut max_difference=0;let mut previous_triangle=base;
+            let mut old_difference=0;
+            for (index,level) in levels.iter().enumerate() {
+                let expected=pixels(level);
+                let actual=&mip_texture.data.as_ref().unwrap()[offset..offset+expected.len()];
+                for (&actual,&expected) in actual.iter().zip(&expected) {
+                    max_difference=max_difference.max(actual.abs_diff(expected));
+                    let tolerance=if cfg!(windows) {0}else {1};
+                    assert!(actual.abs_diff(expected)<=tolerance,"GL mip {index} expected {expected}, got {actual}");
+                }
+                if index>0 {
+                    previous_triangle=image::imageops::resize(&previous_triangle,
+                        level["Width"].as_u64().unwrap() as u32,level["Height"].as_u64().unwrap() as u32,
+                        image::imageops::FilterType::Triangle);
+                    for (&old,&expected) in previous_triangle.as_raw().iter().zip(&expected) {
+                        old_difference=old_difference.max(old.abs_diff(expected));
+                    }
+                }
+                offset+=expected.len();
+            }
+            println!("Original GL mip {}x{}: max byte difference {max_difference}, prior triangle-resize difference {old_difference}",case["Width"],case["Height"]);
+        }
+    }
     #[test]
     fn source_texture_has_complete_mips_and_pixel_filtering() {
         let texture = ship_texture(RgbaImage::from_pixel(8, 4, image::Rgba([20, 40, 80, 255])));

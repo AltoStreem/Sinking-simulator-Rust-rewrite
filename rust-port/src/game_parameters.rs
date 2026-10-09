@@ -669,6 +669,45 @@ impl SourceGameParameterProvider {
             && color.z == other_color.z
             && color.w == other_color.w
     }
+    /// Kotlin data-class `toString`, preserving source property and vector component order.
+    pub fn source_to_string(&self) -> String {
+        use crate::java_string::java_float_to_string as f;
+        let waves = self.waves.borrow();
+        let color = self.water_color.borrow();
+        let waves = format!("{}, {}", f(waves.x), f(waves.y));
+        let water_color = format!(
+            "{}, {}, {}, {}",
+            f(color.x),
+            f(color.y),
+            f(color.z),
+            f(color.w)
+        );
+        format!(
+            "GameParameterProvider(time={}, daycycle={}, cycleLength={}, waves={}, seaFloor={}, buoyancy={}, drag={}, day={}, flow={}, inflow={}, funk={}, tool={}, rigidity={}, strength={}, dampening={}, waterWeight={}, gravity={}, thickness={}, physicsSteps={}, waterSteps={}, waterDarkness={}, waterColor={})",
+            f(self.time),
+            self.daycycle,
+            f(self.cycle_length),
+            waves,
+            f(self.sea_floor),
+            f(self.buoyancy),
+            f(self.drag),
+            f(self.day),
+            f(self.flow),
+            f(self.inflow),
+            f(self.funk),
+            f(self.tool),
+            f(self.rigidity),
+            f(self.strength),
+            f(self.dampening),
+            f(self.water_weight),
+            f(self.gravity),
+            f(self.thickness),
+            self.physics_steps,
+            self.water_steps,
+            f(self.water_darkness),
+            water_color,
+        )
+    }
     pub fn hash_code(&self) -> i32 {
         let wave = self.waves.borrow();
         let color = self.water_color.borrow();

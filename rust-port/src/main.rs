@@ -1,9 +1,21 @@
 mod al_buffer;
 mod al_context;
+#[cfg(windows)]
+mod al_capabilities;
+#[cfg(windows)]
+mod al_capability_tables;
 mod al_context_start_reference;
 mod al_device;
 mod al_resource;
 mod al_source;
+#[cfg(windows)]
+mod native_openal;
+#[cfg(windows)]
+mod native_vorbis;
+#[cfg(windows)]
+mod native_music;
+#[cfg(windows)]
+mod native_music_load;
 mod al_util_kt;
 mod backed_property;
 mod camera_2d;
@@ -15,10 +27,16 @@ mod fbo;
 mod file_reader;
 mod file_reader_kt;
 mod float_data_holder;
+mod float_data_texture_config;
 mod float_property;
 mod floor;
+mod floor_camera_callback;
+mod floor_companion;
 mod force_data;
 mod fragment_shaders;
+mod fragment_shaders_texture;
+mod fragment_shaders_uv;
+mod fragment_shaders_white;
 mod framebuffer_target;
 mod fullscreen;
 mod game_parameter_provider_kt;
@@ -31,17 +49,55 @@ mod gl_state;
 mod glfw;
 mod glfw_monitors;
 mod gui;
+mod gui_gpu_blend;
+mod gui_color_picker;
+mod gui_color_picker_input;
+mod gui_icon_mips;
+mod gui_texture;
 mod gui_kt;
+mod gui_reset_ship;
+mod ship_runtime_reset;
+mod ship_visual_replacement;
+#[cfg(test)]
+mod ship_visual_replacement_tests;
+#[cfg(test)]
+mod ship_visual_gpu_tests;
+mod live_ship_catalog;
 mod gui_tool_factory;
 mod i_drawable;
 mod image_data;
 mod input_handler;
 mod input_handler_delegate;
 mod int_property;
+mod java_string;
 mod jvm_character;
 mod kotlin_helpers;
+mod main_counter_callback;
+mod main_counter_title;
+mod main_debug;
+mod main_flat_files;
+mod main_frame;
+mod main_globals;
+mod main_initial_ship;
+mod main_logging;
+mod main_music_load;
+mod main_screen_fbo_texture;
+mod main_ship_file_predicate;
+mod main_ship_file_resource;
+mod main_ship_input;
+mod main_shutdown;
+mod main_shutdown_watchdog;
+mod main_startup;
 mod mask_struts_data;
+mod mask_struts_ground_flag;
+mod mask_struts_hull_flag;
+mod mask_struts_material_masks;
+mod mask_struts_rope_flag;
+mod mask_struts_structural_predicate;
+mod mask_struts_texture_config;
+mod mask_struts_water_predicate;
 mod mass_strength_data;
+mod mass_strength_data_texture_config;
 mod materials;
 mod mem_util;
 mod model;
@@ -49,40 +105,112 @@ mod monitor;
 mod monitor_scale;
 mod monitor_video_mode;
 mod music_player;
+mod music_controls;
+mod music_player_icon_config;
+mod music_player_icons;
 mod music_player_progress_reference;
+mod music_player_ui;
 mod music_player_volume_reference;
+mod palette_gen;
 mod passes;
+mod physics_full_screen;
 mod pos_vel_data;
+mod pos_vel_data_texture_config;
 mod render_buffer;
 mod render_fbo;
 mod resource;
 mod screen_fbo;
 mod sea;
+mod sea_camera_callback;
+mod sea_companion;
+mod sea_resolution_callback;
 mod shaded_model;
 mod shader;
 mod shader_program;
 mod ship;
+mod ship_black_texture;
+mod ship_black_texture_config;
+mod ship_camera_callback;
+mod ship_companion;
 mod ship_data;
+mod ship_fragment_shader;
+mod ship_geometry_shader;
 mod ship_physics;
-mod ship_resources;
+mod ship_physics_shaders;
+mod ship_physics_stencil;
+mod ship_render;
 mod ship_resource_when_mappings;
-mod ship_upload;
+mod ship_resources;
+mod ship_shaders;
+mod ship_strut_shader;
 mod ship_struts;
+mod ship_struts_camera_callback;
+mod ship_struts_companion;
 mod ship_thumbnail;
+mod ship_upload;
+mod ship_upload_resources;
+mod ship_upload_layout;
+mod ship_gpu_geometry;
+mod ship_coverage;
+mod ship_upload_preview;
 mod sky;
+mod sky_camera_reference;
+mod sky_companion;
+mod sky_free_camera_reference;
+mod sky_free_resolution_reference;
+mod sky_resolution_reference;
+mod sky_star_field;
+mod sky_stars_texture;
+mod sky_texture;
+mod source_ship;
+mod source_ship_physics;
 mod tee_output_stream;
 mod texture;
 mod texture_1d;
 mod texture_2d;
+#[cfg(windows)]
+mod native_gl_mips;
+#[cfg(windows)]
+mod native_gl_backend;
+#[cfg(all(test, windows))]
+mod native_gl_backend_tests;
+#[cfg(all(test, windows))]
+mod native_gl_physics_reference;
 mod texture_2d_array;
 mod textured_fbo;
 mod time_sync;
 mod time_sync_reporter;
 mod toolbox;
+mod toolbox_layout;
+mod toolbox_tools;
+mod toolbox_viewport;
+mod ui_font;
+mod text_edit_state;
+mod editor_clipboard;
+mod ui_mouse_input;
+mod ui_text_viewport;
+mod ui_numeric;
+mod ui_window_scroll;
+mod ui_description_scroll;
+mod ui_text_visuals;
+mod text_edit_layout;
+mod source_font_advances;
+mod source_font_text;
+mod text_edit_undo;
+mod ui_scrollbar;
+mod ship_browser_ui;
+mod ui_descriptions;
+mod ui_classic_appearance;
+mod source_ui_metrics;
+mod source_tools_layout;
+mod source_tools_popup;
+mod ui_checkmarks;
+mod ui_arrows;
 mod toolbox_references;
 mod toolbox_reload;
 mod toolbox_reload_file_predicate;
 mod toolbox_reload_filesystem;
+mod toolbox_reload_loop;
 mod toolbox_reload_name_comparator;
 mod toolbox_render_3;
 mod toolbox_settings;
@@ -90,19 +218,29 @@ mod toolbox_ship_browser;
 mod tools;
 mod typed_data_holder;
 mod uint8_data_holder;
+mod uint8_data_texture_config;
 mod uv_model;
 mod vao;
 mod vbo;
 mod vector2_property;
 mod vertex_shaders;
+mod vertex_shaders_none;
+mod vertex_shaders_nothing;
+mod vertex_shaders_transform;
 mod water_data;
 mod window;
+mod window_bevy;
+mod ui_input_capture;
+mod window_keyboard;
+mod window_characters;
+mod window_native_characters;
 mod window_framebuffer_callback;
 
 use bevy::prelude::*;
 use bevy::{
     asset::RenderAssetUsages,
     camera::{ClearColorConfig, ScalingMode, visibility::RenderLayers},
+    input::keyboard::KeyboardInput,
     input::mouse::{MouseScrollUnit, MouseWheel},
     mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
     reflect::TypePath,
@@ -128,11 +266,12 @@ use fragment_shaders::ShipMaterial;
 use mask_struts_data::{build_strut_masks, gpu_mask_data};
 use mass_strength_data::gpu_material_data;
 use ship_physics::{
-    GpuShipPhysicsAssets, GpuShipPhysicsPlugin, GpuShipPhysicsSnapshot, capture_gpu_mask_readback,
-    capture_gpu_ship_physics_readback, capture_gpu_water_readback, gpu_settings,
-    make_gpu_ship_physics_assets, reset_gpu_ship_physics,
+    GpuShipPhysicsAssets, GpuShipPhysicsPlugin, GpuShipPhysicsSnapshot, gpu_settings,
+    make_gpu_ship_physics_assets, replace_gpu_ship_physics,
 };
-use ship_resources::{ShipLayer, ShipResourceFile, ShipResourceType, parse_resource_path};
+use ship_resources::{
+    ShipLayer, ShipResource, ShipResourceFile, ShipResourceType, parse_resource_path,
+};
 use std::borrow::Cow;
 use std::collections::{HashMap, VecDeque};
 use tools::tool::Tool;
@@ -159,12 +298,22 @@ const DRAG_SEA_ALPHA: usize = usize::MAX - 2;
 const GPU_PHYSICS_SHADER: &str = "shaders/ship_physics.wgsl";
 const GPU_PHYSICS_WORKGROUP_SIZE: u32 = 64;
 
+struct ActiveMusicPlugin;
+impl Plugin for ActiveMusicPlugin {
+    fn build(&self, app: &mut App) {
+        #[cfg(windows)]
+        app.add_plugins(native_music::NativeMusicPlugin);
+    }
+}
+fn active_music_plugin() -> ActiveMusicPlugin { ActiveMusicPlugin }
+fn active_default_plugins() -> bevy::app::PluginGroupBuilder {
+    let plugins = DefaultPlugins.build();
+    #[cfg(windows)]
+    let plugins = plugins.disable::<bevy::audio::AudioPlugin>();
+    plugins
+}
 fn main() {
-    let ship_catalog = ShipCatalog::discover();
-    let initial_structure = ShipStructure::load_for_choice(&ship_catalog.0[0]);
-    App::new()
-        .add_plugins(
-            DefaultPlugins
+    let mut app=game_app(active_default_plugins()
                 .set(bevy::asset::AssetPlugin {
                     file_path: std::env::current_dir()
                         .expect("working directory")
@@ -174,19 +323,37 @@ fn main() {
                     ..default()
                 })
                 .set(WindowPlugin {
+                    // The translated native close callback can reset shouldClose.
+                    close_when_requested: false,
                     primary_window: Some(Window {
-                        title: "Sinking Simulator — Bevy port".into(),
+                        title: "Loading...".into(),
+                        ime_enabled: true,
                         present_mode: bevy::window::PresentMode::AutoNoVsync,
                         resolution: (2554, 1378).into(),
                         ..default()
                     }),
                     ..default()
-                }),
-        )
+                }));
+    app.run();
+    #[cfg(windows)]
+    native_gl_mips::release_current_thread();
+}
+
+// Share the actual game systems with live runtime checks.
+fn game_app(plugins: bevy::app::PluginGroupBuilder) -> App {
+    main_globals::set_global_materials(std::sync::Arc::new(materials::SourceMaterials::from_file(
+        std::path::Path::new("assets/config/materials.json"), |error| eprintln!("{error}"),
+    )));
+    let ship_catalog = ShipCatalog::discover();
+    let (initial_structure,active_thumbnail)=ship_runtime_reset::choice(&ship_catalog.0[0]);
+    let mut app=App::new();
+    app.insert_non_send_resource(live_ship_catalog::LiveCatalog::extracted());
+    app.add_plugins(plugins)
         .add_plugins((
             Material2dPlugin::<InternalWaterMaterial>::default(),
             Material2dPlugin::<tools::brush_preview::BrushMaterial>::default(),
             Material2dPlugin::<ShipMaterial>::default(),
+            Material2dPlugin::<ship_coverage::CoverageMaterial>::default(),
             Material2dPlugin::<sky::SkyMaterial>::default(),
             Material2dPlugin::<ReflectionMaterial>::default(),
             Material2dPlugin::<OceanSurfaceMaterial>::default(),
@@ -195,20 +362,44 @@ fn main() {
             Material2dPlugin::<UnderwaterEffectMaterial>::default(),
             GpuShipPhysicsPlugin,
             resource::ResourcePlugin,
+            window_bevy::WindowBridgePlugin,
             render_fbo::RenderFboPlugin,
+            sky_star_field::StarFieldPlugin,
         ))
+        .add_plugins(gui_gpu_blend::SourceGuiBlendPlugin)
         .insert_resource(ClearColor(Color::srgb(0.40, 0.68, 0.82)))
         .init_resource::<Simulation>()
+        .init_resource::<ship_browser_ui::BrowserLayout>()
+        .init_resource::<live_ship_catalog::PendingSelection>()
+        .init_resource::<ship_upload::SourceShipUpload>()
+        .init_resource::<ShipUploadUiState>()
+        .init_resource::<editor_clipboard::Clipboard>()
+        .init_resource::<ship_upload_layout::Layout>()
+        .init_resource::<ship_upload_preview::ActivePreview>()
+        .init_resource::<ship_black_texture::SharedBlackTexture>()
         .init_resource::<time_sync::TimeSync>()
         .add_systems(Startup, time_sync::register_lifecycle)
         .add_systems(Last, time_sync::sync_frame)
         .insert_resource(music_player::MusicPlayer::discover())
+        .add_plugins(active_music_plugin())
         .init_resource::<CameraControlState>()
         .init_resource::<tools::move_tool::MoveDragState>()
         .insert_resource(ship_catalog)
         .insert_resource(initial_structure)
+        .insert_resource(active_thumbnail)
+        .add_systems(Update,live_ship_catalog::advance.before(refresh_ship_catalog).before(load_selected_ship))
         .add_systems(Startup, (setup, floor::setup, sky::setup))
         .add_systems(Startup, sea::setup.after(setup))
+        .add_systems(Startup, ship_coverage::setup.after(setup))
+        .add_systems(Startup,tools::brush_preview::setup_overlay.after(setup))
+        .add_systems(PostUpdate,tools::brush_preview::sync_overlay
+            .before(bevy::camera::CameraUpdateSystems)
+            .before(bevy::transform::TransformSystems::Propagate))
+        .add_systems(PostUpdate,tools::brush_preview::source_camera_output
+            .before(bevy::camera::CameraUpdateSystems))
+        .add_systems(PostUpdate, ship_coverage::sync
+            .before(bevy::camera::CameraUpdateSystems)
+            .before(bevy::transform::TransformSystems::Propagate))
         .add_systems(
             PostUpdate,
             sea::sync
@@ -218,6 +409,60 @@ fn main() {
         .add_systems(
             Update,
             music_player::sync.after(select_toolbox_tab_and_settings),
+        )
+        .add_systems(Update, sync_ship_upload_ui)
+        .add_systems(Startup, ship_upload_layout::spawn)
+        .add_systems(Startup, ui_text_visuals::spawn)
+        .add_systems(Startup, ui_text_viewport::spawn)
+        .add_systems(Startup, ui_description_scroll::spawn)
+        .add_systems(PostUpdate,ui_description_scroll::draw.after(ui_text_viewport::update)
+            .before(bevy::transform::TransformSystems::Propagate))
+        .add_systems(PostUpdate,ui_text_viewport::update.after(ship_upload_layout::sync).before(ui_text_visuals::update)
+            .before(bevy::transform::TransformSystems::Propagate))
+        .add_systems(PostUpdate,ui_text_visuals::update.after(ship_upload_layout::sync)
+            .before(bevy::transform::TransformSystems::Propagate))
+        .add_systems(Update, ship_upload_layout::move_window.after(handle_ship_upload_ui).after(sync_ship_upload_ui).before(ship_upload_preview::click))
+        .add_systems(Update, ship_upload_preview::click.after(handle_ship_upload_ui).before(load_selected_ship))
+        .add_systems(PreUpdate, ship_upload_layout::scroll.after(bevy::input::InputSystems))
+        .add_systems(PostUpdate, (ship_upload_layout::route, ship_upload_layout::sync).chain()
+            .after(toolbox_viewport::route_layers)
+            .before(bevy::camera::CameraUpdateSystems)
+            .before(bevy::transform::TransformSystems::Propagate))
+        .add_systems(PostUpdate,ship_upload_layout::sync_window_decorations.after(ship_upload_layout::sync).before(bevy::transform::TransformSystems::Propagate))
+        .add_systems(Startup,source_tools_popup::setup)
+        .add_systems(Update,(source_tools_popup::scroll,source_tools_popup::drag).chain().before(select_ship_layer).before(select_toolbox_tab_and_settings))
+        .add_systems(PostUpdate,source_tools_popup::route_layers.after(toolbox_viewport::route_layers).after(source_tools_layout::sync))
+        .add_systems(PostUpdate,source_tools_popup::sync.after(source_tools_layout::sync).before(bevy::camera::CameraUpdateSystems).before(bevy::transform::TransformSystems::Propagate))
+        .init_resource::<source_ui_metrics::SourceUiMetrics>()
+        .add_systems(PreUpdate, ship_upload_layout::prepare.after(source_ui_metrics::capture).before(ui_input_capture::update))
+        .add_systems(PreUpdate, source_ui_metrics::capture.before(update_tool_panel_layout))
+        .add_systems(PreUpdate, source_tools_layout::update.after(source_ui_metrics::capture).before(update_tool_panel_layout))
+        .add_systems(PostUpdate, source_tools_layout::sync.after(ui_font::apply).before(ui_descriptions::update).before(ui_classic_appearance::apply).before(bevy::transform::TransformSystems::Propagate).before(bevy::camera::CameraUpdateSystems))
+        .add_systems(PreUpdate, update_tool_panel_layout)
+        .add_systems(PreUpdate, toolbox_viewport::scroll_settings.after(update_tool_panel_layout).after(bevy::input::InputSystems).after(ui_input_capture::update))
+        .add_systems(Update, ui_scrollbar::handle.before(select_toolbox_tab_and_settings))
+        .add_systems(Update, ship_browser_ui::input.after(select_ship_from_panel).before(load_selected_ship))
+        .add_systems(Startup, ui_arrows::spawn)
+        .add_systems(Update, ui_arrows::sync.after(sync_toolbox_visibility))
+        .add_systems(PostUpdate, ui_classic_appearance::apply.after(ship_upload_layout::sync).after(toolbox_viewport::sync).after(ship_browser_ui::sync))
+        .add_systems(Startup, ui_checkmarks::spawn.after(setup))
+        .add_systems(PostUpdate, ui_checkmarks::sync.after(toolbox_viewport::route_layers).before(bevy::sprite::update_text2d_layout))
+        .add_systems(Startup, ui_descriptions::spawn)
+        .add_systems(PostUpdate, ui_descriptions::update.after(ship_browser_ui::sync).after(ship_upload_layout::sync).before(bevy::sprite::update_text2d_layout))
+        .add_systems(PostUpdate, ui_descriptions::position.after(ui_descriptions::update).after(bevy::sprite::update_text2d_layout).before(bevy::transform::TransformSystems::Propagate))
+        .add_systems(PostUpdate, ship_browser_ui::sync.after(toolbox_viewport::sync)
+            .before(bevy::camera::CameraUpdateSystems)
+            .before(bevy::transform::TransformSystems::Propagate))
+        .add_systems(PostUpdate, (toolbox_viewport::route_layers, toolbox_viewport::sync).chain()
+            .before(bevy::camera::CameraUpdateSystems)
+            .before(bevy::transform::TransformSystems::Propagate))
+        .add_systems(
+            Update,
+            sync_tool_panel_position.after(sync_ship_layer_dropdown),
+        )
+        .add_systems(
+            Update,
+            sync_ship_layer_dropdown.after(update_ship_layer_label),
         )
         .add_systems(
             Update,
@@ -232,9 +477,11 @@ fn main() {
                     handle_controls,
                     handle_camera_control,
                     select_toolbox_tab_and_settings,
+                    sync_source_daylight,
                     select_ship_from_panel,
+                    handle_ship_upload_ui,
                     select_ship_layer,
-                    import_dropped_ship,
+                    refresh_ship_catalog,
                     load_selected_ship,
                 )
                     .chain(),
@@ -254,11 +501,10 @@ fn main() {
                     animate_leaks,
                     sync_toolbox_visibility,
                     sync_ship_assets,
-                    sync_ship_cards,
+                    sync_tool_icons,
                     sync_tool_panel_visibility,
                     sync_settings_ui,
                     update_ship_layer_label,
-                    update_hud,
                 )
                     .chain(),
             )
@@ -269,22 +515,30 @@ fn main() {
             fragment_shaders::update_ship_lighting.after(sync_ship_assets),
         )
         .add_systems(Update, floor::update.after(handle_camera_control))
-        .add_systems(Update, music_player::handle_seek.before(music_player::sync))
-        .run();
+        .add_systems(Update, music_controls::handle_sliders.before(music_player::sync))
+        .add_systems(Update, music_controls::sync.after(music_player::sync))
+        .add_systems(PostUpdate, ui_font::apply.before(bevy::sprite::update_text2d_layout));
+    app
 }
 
 #[derive(Resource)]
 struct Simulation {
     elapsed: f32,
     flooding: f32,
-    paused: bool,
     tool: Tool,
     ship_index: usize,
     selected_layer: usize,
-    ship_scroll: usize,
+    layer_dropdown_open: bool,
+    tool_panel_offset: Vec2,
+    source_tools: Option<source_tools_layout::Layout>,
+    layer_popup_scroll: f32,
+    settings_scroll: [f32; 6],
+    settings_scroll_max: [f32; 6],
+    toolbox_page_bottom: [f32; 6],
     ship_search: String,
+    ship_search_units:Vec<u16>,
     ship_search_active: bool,
-    pump_enabled: bool,
+    catalog_revision: u64,
     wave_amplitude: f32,
     water_flow: f32,
     buoyancy: f32,
@@ -302,7 +556,7 @@ struct Simulation {
     water_darkness: f32,
     sea_color: Vec3,
     sea_alpha: f32,
-    sea_hue: f32,
+    sea_color_memory: gui_color_picker_input::ColorMemory,
     cycle_length: f32,
     day: f32,
     cycle_enabled: bool,
@@ -821,39 +1075,42 @@ impl ShipStructure {
         // port created hundreds of thousands of points and over a million
         // constraints, causing stalls and self-tearing. The art remains at its
         // original resolution and is UV-mapped across these material clusters.
-        let source_width = image.width() as usize;
-        let source_height = image.height() as usize;
-        let half_height = (SHIP_HALF_WIDTH * source_height as f32 / source_width.max(1) as f32)
-            .clamp(40.0, 180.0);
-        let width = source_width.div_ceil(PHYSICS_NODE_PIXELS);
-        let height = source_height.div_ceil(PHYSICS_NODE_PIXELS);
-        let white_background = if choice.material_map {
-            vec![false; source_width * source_height]
-        } else {
-            find_connected_white_background(&image)
-        };
-        let global_materials = match std::fs::read_to_string("assets/config/materials.json") {
-            Ok(json) => materials::Materials::from_json(&json).unwrap_or_else(|error| {
-                bevy::log::error!("Could not parse global material palette: {error}");
-                materials::Materials::default()
-            }),
-            Err(error) => {
-                bevy::log::error!("Could not read global material palette: {error}");
-                materials::Materials::default()
-            }
-        };
-        let palette = if choice.material_map {
-            ship_thumbnail::ShipThumbnail::from_base_file(std::path::Path::new(&image_path))
-                .map(|thumbnail| thumbnail.materials(&global_materials))
-                .unwrap_or_else(|_| global_materials.clone())
-        } else {
-            global_materials
-        };
+        let global_materials = main_globals::get_global_materials();
         // ShipData uses the original BASE pixels, including invisible materials
         // and RGB values with zero alpha. Visibility filtering applies solely
         // to BaseDerivedTextureShipResource, never to the physics material map.
-        let source_data = ship_data::ShipData::new(image, palette);
-        let image = &source_data.img;
+        let source_data = if choice.material_map {
+            let original =
+                ship_thumbnail::ShipThumbnail::from_base_file(std::path::Path::new(&image_path))
+                    .and_then(|thumbnail| {
+                        let binding = ship_thumbnail::SourceShipDataThumbnailCurrent {
+                            thumbnail: &thumbnail,
+                            global: &main_globals::get_global_materials,
+                        };
+                        ship_data::SourceShipData::from_thumbnail(&binding)?.to_owned_adapter()
+                    });
+            match original {
+                Ok(data) => data,
+                Err(error) => {
+                    bevy::log::error!("Could not construct source ship data: {error}");
+                    ship_data::ShipData::new(image, global_materials.to_owned_adapter())
+                }
+            }
+        } else {
+            ship_data::ShipData::new(image, global_materials.to_owned_adapter())
+        };
+        Self::from_data(source_data,choice.material_map)
+    }
+    fn load_for_thumbnail(thumbnail:&ship_thumbnail::ShipThumbnail)->Result<Self,String>{
+        let binding=ship_thumbnail::SourceShipDataThumbnailCurrent{thumbnail,global:&main_globals::get_global_materials};
+        Ok(Self::from_data(ship_data::SourceShipData::from_thumbnail(&binding)?.to_owned_adapter()?,true))
+    }
+    fn from_data(source_data:ship_data::ShipData,material_map:bool)->Self{
+        let image=&source_data.img;
+        let source_width=image.width() as usize;let source_height=image.height() as usize;
+        let half_height=(SHIP_HALF_WIDTH*source_height as f32/source_width.max(1) as f32).clamp(40.0,180.0);
+        let width=source_width.div_ceil(PHYSICS_NODE_PIXELS);let height=source_height.div_ceil(PHYSICS_NODE_PIXELS);
+        let white_background=if material_map{vec![false;source_width*source_height]}else{find_connected_white_background(image)};
         let mut solid = vec![false; width * height];
         let mut cell_materials = vec![None; width * height];
         let mut texel_solid = vec![false; source_width * source_height];
@@ -861,14 +1118,14 @@ impl ShipStructure {
         for source_y in 0..source_height {
             for source_x in 0..source_width {
                 let pixel = image.get_pixel(source_x as u32, source_y as u32).0;
-                if !choice.material_map && pixel[3] <= 8 {
+                if !material_map && pixel[3] <= 8 {
                     continue;
                 }
                 let material = source_data
                     .material_at(source_x as u32, source_y as u32)
                     .map(MaterialProperties::from)
                     .or_else(|| {
-                        (!choice.material_map
+                        (!material_map
                             && !white_background[source_y * source_width + source_x])
                             .then_some(MaterialProperties {
                                 strength: 65.0,
@@ -1205,16 +1462,21 @@ impl Default for Simulation {
         Self {
             elapsed: 0.0,
             flooding: 0.0,
-            paused: false,
-            tool: Tool::Break,
-            // The only ship with a complete source material map and soft-body
-            // setup in this port is Titanic, so start on the matching asset.
+            tool: Tool::None,
+            // Main.java constructs ships/pacmaster by default; catalog discovery places it at index zero.
             ship_index: 0,
             selected_layer: 0,
-            ship_scroll: 0,
+            layer_dropdown_open: false,
+            tool_panel_offset: Vec2::new(-360.0, -510.0),
+            source_tools: None,
+            layer_popup_scroll: 0.0,
+            settings_scroll: [0.0; 6],
+            settings_scroll_max: [0.0; 6],
+            toolbox_page_bottom: [-350.0; 6],
             ship_search: String::new(),
+            ship_search_units:Vec::new(),
             ship_search_active: false,
-            pump_enabled: false,
+            catalog_revision: 0,
             wave_amplitude: 1.0,
             water_flow: 60.0,
             buoyancy: 1.0,
@@ -1234,7 +1496,7 @@ impl Default for Simulation {
             sea_alpha: game_parameters::GameParameterProvider::default()
                 .water_color
                 .w,
-            sea_hue: rgb_to_hue(Vec3::new(0.0, 71.0 / 255.0, 159.0 / 255.0)),
+            sea_color_memory: gui_color_picker_input::ColorMemory::default(),
             cycle_length: 120.0,
             day: 1.0,
             cycle_enabled: true,
@@ -1286,6 +1548,21 @@ impl Simulation {
         }
     }
     fn adjust(&mut self, index: usize, delta: f32) {
+        match index {
+            16 => {
+                let minimum = self.water_steps.round().clamp(1.0, 1000.0);
+                self.physics_iterations = (self.physics_iterations + delta)
+                    .round()
+                    .clamp(minimum, 1000.0);
+                return;
+            }
+            17 => {
+                let maximum = self.physics_iterations.round().clamp(1.0, 1000.0);
+                self.water_steps = (self.water_steps + delta).round().clamp(1.0, maximum);
+                return;
+            }
+            _ => {}
+        }
         let target = match index {
             0 => &mut self.wave_width,
             1 => &mut self.wave_amplitude,
@@ -1303,14 +1580,12 @@ impl Simulation {
             13 => &mut self.thickness,
             14 => &mut self.cycle_length,
             15 => &mut self.water_darkness,
-            16 => &mut self.physics_iterations,
-            17 => &mut self.water_steps,
             18 => {
                 self.day = (self.day + delta).clamp(0.0, 1.0);
                 return;
             }
             19 => {
-                self.tool_size = (self.tool_size + delta * 0.1).clamp(0.1, 4.0);
+                self.tool_size = (self.tool_size + delta).clamp(0.0, 1000.0);
                 return;
             }
             20 => {
@@ -1319,26 +1594,14 @@ impl Simulation {
             }
             21 => {
                 self.sea_color.x = (self.sea_color.x + delta).clamp(0.0, 1.0);
-                let (hue, saturation, _) = rgb_to_hsv(self.sea_color);
-                if saturation > 0.0 {
-                    self.sea_hue = hue;
-                }
                 return;
             }
             22 => {
                 self.sea_color.y = (self.sea_color.y + delta).clamp(0.0, 1.0);
-                let (hue, saturation, _) = rgb_to_hsv(self.sea_color);
-                if saturation > 0.0 {
-                    self.sea_hue = hue;
-                }
                 return;
             }
             23 => {
                 self.sea_color.z = (self.sea_color.z + delta).clamp(0.0, 1.0);
-                let (hue, saturation, _) = rgb_to_hsv(self.sea_color);
-                if saturation > 0.0 {
-                    self.sea_hue = hue;
-                }
                 return;
             }
             24 => {
@@ -1347,13 +1610,22 @@ impl Simulation {
             }
             _ => return,
         };
-        *target = (*target + delta).max(if index == 13 {
-            0.005
-        } else if index == 15 {
-            0.1
-        } else {
-            0.0
-        });
+        let (minimum, maximum) = match index {
+            0 => (0.1, 1.0e7),
+            1 | 3 | 4 => (0.0, 1.0e7),
+            2 => (-1.0e7, 1.0e7),
+            5 | 6 => (0.0, 1000.0),
+            7 => (0.0, 2.0),
+            8 => (-1000.0, 1000.0),
+            9 => (0.0, 1000.0),
+            10 | 11 => (0.0, 2.0),
+            12 => (0.0, 1.0e6),
+            13 => (1.0e-6, 1.0),
+            14 => (0.0, 1.0e6),
+            15 => (0.0, 10.0),
+            _ => (0.0, f32::MAX),
+        };
+        *target = (*target + delta).clamp(minimum, maximum);
     }
 }
 
@@ -1377,6 +1649,7 @@ enum SettingAction {
     ToggleShuffle,
     ToggleRepeat,
     NextTrack,
+    GeneratePalette,
 }
 
 #[derive(Clone, Copy)]
@@ -1384,22 +1657,28 @@ enum SettingValue {
     Number(usize),
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 struct ShipChoice {
     name: String,
     asset: String,
     physics_asset: String,
     material_map: bool,
     scale: f32,
+    source_key: Option<SourceShipKey>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct SourceShipKey {
+    directory: std::path::PathBuf,
+    ship: String,
+}
+#[derive(Clone, PartialEq)]
 struct ShipLayerChoice {
     name: ShipLayer,
     asset: String,
 }
 
-#[derive(Resource)]
+#[derive(Resource, Clone, PartialEq)]
 struct ShipCatalog(Vec<ShipChoice>, Vec<Vec<ShipLayerChoice>>);
 
 impl ShipCatalog {
@@ -1445,6 +1724,7 @@ impl ShipCatalog {
                 Path::new(physics_asset),
                 name.to_owned(),
                 mapped,
+                None,
             );
         }
         if let Ok(entries) = std::fs::read_dir(root) {
@@ -1458,7 +1738,7 @@ impl ShipCatalog {
                     .and_then(|name| name.to_str())
                     .unwrap_or("Ship")
                     .replace('_', " ");
-                push_ship_choice(&mut choices, &path, &path, name, false);
+                push_ship_choice(&mut choices, &path, &path, name, false, None);
             }
         }
 
@@ -1469,9 +1749,6 @@ impl ShipCatalog {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.is_dir() {
-                    if path.file_name().and_then(|n| n.to_str()) == Some("Structure Pack") {
-                        continue;
-                    }
                     collect_material_maps(&path, root, choices);
                     continue;
                 }
@@ -1500,16 +1777,16 @@ impl ShipCatalog {
                     .find(|candidate| candidate.is_file())
                     .unwrap_or_else(|| path.clone());
                 let name = ship_stem.replace('_', " ");
-                push_ship_choice(choices, &texture, &path, name, true);
+                push_ship_choice(choices, &texture, &path, name, true, None);
             }
         }
         collect_material_maps(root, root, &mut choices);
 
         // ShipResource.fromFile in the original game groups *_BASE, *_TEXTURE,
         // *_INLIGHTS and *_EXLIGHTS files by ship and optional Layer.
-        let mut source_resources = HashMap::new();
+        let mut source_resources = Vec::new();
         collect_source_ship_resources(Path::new("assets/source_ships"), &mut source_resources);
-        for resources in source_resources.values() {
+        for (source_key, resources) in &source_resources {
             let Ok(thumbnail) = ship_thumbnail::ShipThumbnail::new(resources.clone()) else {
                 continue;
             };
@@ -1527,12 +1804,13 @@ impl ShipCatalog {
                 &mut choices,
                 appearance,
                 &base.path,
-                thumbnail.name().unwrap_or(&base.ship).replace('_', " "),
+                thumbnail.name().unwrap_or(&base.ship).to_owned(),
                 true,
+                Some(source_key.clone()),
             );
         }
 
-        choices.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+        choices.sort_by(|a, b| crate::java_string::java_string_cmp(&a.name, &b.name));
         choices.dedup_by(|a, b| a.asset == b.asset && a.physics_asset == b.physics_asset);
         if let Some(initial_ship) = choices
             .iter()
@@ -1548,6 +1826,7 @@ impl ShipCatalog {
                 &fallback,
                 "RMS Titanic".to_owned(),
                 false,
+                None,
             );
         }
 
@@ -1562,34 +1841,45 @@ impl ShipCatalog {
             .collect();
         for (index, choice) in choices.iter().enumerate() {
             let key = normalized_ship_key(&choice.name);
-            for resources in source_resources.values() {
-                for resource in resources {
-                    if normalized_ship_key(&resource.ship) != key
-                        || resource.resource_type != ShipResourceType::Texture
-                        || !resource.resource_type.is_layered()
-                        || resource.layer.is_default()
-                    {
+            for (source_key, resources) in &source_resources {
+                if let Some(choice_key) = &choice.source_key {
+                    if choice_key != source_key {
                         continue;
                     }
-                    let layer_assets = &mut layers[index];
-                    if layer_assets
-                        .iter()
-                        .any(|existing| existing.name == resource.layer)
-                    {
-                        continue;
-                    }
-                    layer_assets.push(ShipLayerChoice {
-                        name: resource.layer.clone(),
-                        asset: asset_path(&resource.path),
-                    });
+                } else if resources
+                    .first()
+                    .is_none_or(|resource| normalized_ship_key(&resource.ship) != key)
+                {
+                    continue;
                 }
+                let Ok(thumbnail) = ship_thumbnail::ShipThumbnail::new(resources.clone()) else {
+                    continue;
+                };
+                let source_layers = ship::ShipLayers::new(thumbnail);
+                layers[index] = source_layers
+                    .layers
+                    .iter()
+                    .filter_map(|layer| {
+                        let asset = match source_layers
+                            .thumbnail
+                            .get_resource(ShipResourceType::Texture, layer)
+                        {
+                            Some(ship_thumbnail::ThumbnailResource::File(resource)) => {
+                                asset_path(&resource.path)
+                            }
+                            Some(ship_thumbnail::ThumbnailResource::BaseDerivedTexture(
+                                resource,
+                            )) => asset_path(&resource.base_resource.path),
+                            None => return None,
+                        };
+                        Some(ShipLayerChoice {
+                            name: layer.clone(),
+                            asset,
+                        })
+                    })
+                    .collect();
+                break;
             }
-            layers[index][1..].sort_by(|a, b| {
-                a.name
-                    .name()
-                    .to_ascii_lowercase()
-                    .cmp(&b.name.name().to_ascii_lowercase())
-            });
         }
         Self(choices, layers)
     }
@@ -1605,24 +1895,7 @@ impl ShipCatalog {
         self.1
             .get(ship_index)
             .and_then(|layers| layers.get(layer_index).or_else(|| layers.first()))
-            .map(|layer| layer.name.name())
-    }
-
-    fn add_imported(&mut self, choice: ShipChoice) -> usize {
-        if let Some(index) = self
-            .0
-            .iter()
-            .position(|existing| existing.asset == choice.asset)
-        {
-            return index;
-        }
-        let default_layer = ShipLayerChoice {
-            name: ShipLayer::default(),
-            asset: choice.asset.clone(),
-        };
-        self.0.push(choice);
-        self.1.push(vec![default_layer]);
-        self.0.len() - 1
+            .map(|layer| layer.name.display_name())
     }
 }
 
@@ -1644,7 +1917,7 @@ fn asset_path(path: &std::path::Path) -> String {
 
 fn collect_source_ship_resources(
     folder: &std::path::Path,
-    resources: &mut HashMap<String, Vec<ShipResourceFile>>,
+    resources: &mut Vec<(SourceShipKey, Vec<ShipResourceFile>)>,
 ) {
     let Ok(entries) = std::fs::read_dir(folder) else {
         return;
@@ -1652,18 +1925,23 @@ fn collect_source_ship_resources(
     for entry in entries.flatten() {
         let path = entry.path();
         if path.is_dir() {
-            if path.file_name().and_then(|name| name.to_str()) != Some("Structure Pack") {
-                collect_source_ship_resources(&path, resources);
-            }
+            collect_source_ship_resources(&path, resources);
             continue;
         }
         let Ok(resource) = parse_resource_path(&path) else {
             continue;
         };
-        resources
-            .entry(resource.ship.clone())
-            .or_default()
-            .push(resource);
+        let canonical =
+            std::fs::canonicalize(&resource.path).unwrap_or_else(|_| resource.path.clone());
+        let key = SourceShipKey {
+            directory: canonical.parent().unwrap_or(folder).to_path_buf(),
+            ship: resource.ship.clone(),
+        };
+        if let Some((_, grouped)) = resources.iter_mut().find(|(existing, _)| existing == &key) {
+            grouped.push(resource);
+        } else {
+            resources.push((key, vec![resource]));
+        }
     }
 }
 
@@ -1679,6 +1957,7 @@ fn push_ship_choice(
     material_map: &std::path::Path,
     name: String,
     has_material_map: bool,
+    source_key: Option<SourceShipKey>,
 ) {
     let to_asset_path = |path: &std::path::Path| {
         path.strip_prefix("assets")
@@ -1698,55 +1977,14 @@ fn push_ship_choice(
         physics_asset,
         material_map: has_material_map,
         scale,
+        source_key,
     });
 }
 
-fn spawn_ship_catalog_card(
-    commands: &mut Commands,
-    assets: &AssetServer,
-    index: usize,
-    choice: &ShipChoice,
-    visible: bool,
-) {
-    let y = 122.0 - index as f32 * 57.0;
-    let visibility = if visible {
-        Visibility::Inherited
-    } else {
-        Visibility::Hidden
-    };
-    commands.spawn((
-        ToolboxContent,
-        ShipCard(index),
-        Sprite::from_color(Color::srgb(0.23, 0.27, 0.40), Vec2::new(326.0, 48.0)),
-        Transform::from_xyz(-465.0, y, 21.0),
-        RenderLayers::layer(1),
-        visibility,
-    ));
-    let mut thumbnail = Sprite::from_image(assets.load(choice.asset.clone()));
-    thumbnail.custom_size = Some(Vec2::new(100.0, 26.0));
-    commands.spawn((
-        ToolboxContent,
-        ShipThumbnail(index),
-        thumbnail,
-        Transform::from_xyz(-575.0, y, 22.0),
-        RenderLayers::layer(1),
-        visibility,
-    ));
-    commands.spawn((
-        ToolboxContent,
-        ShipNameLabel(index),
-        Text2d::new(choice.name.clone()),
-        TextFont {
-            font_size: FontSize::Px(15.0),
-            ..default()
-        },
-        TextColor(Color::WHITE),
-        Transform::from_xyz(-480.0, y, 22.0),
-        RenderLayers::layer(1),
-        visibility,
-    ));
+fn spawn_ship_catalog_card(commands: &mut Commands, assets: &AssetServer, index: usize, choice: &ShipChoice, _visible: bool) {
+    commands.spawn((ToolboxContent,ShipCard(index),Sprite::from_color(Color::srgb(0.23,0.27,0.40),Vec2::ONE),Transform::from_xyz(-465.0,0.0,21.0),RenderLayers::layer(4),Visibility::Hidden));
+    commands.spawn((ToolboxContent,ShipThumbnail(index),if choice.source_key.is_some() {Sprite::default()}else {Sprite::from_image(assets.load(choice.asset.clone()))},Transform::from_xyz(-465.0,0.0,22.0),RenderLayers::layer(4),Visibility::Hidden));
 }
-
 #[derive(Component)]
 struct OceanDepth {
     mesh: Handle<Mesh>,
@@ -1898,9 +2136,6 @@ impl Material2d for ReflectionMaterial {
 }
 
 #[derive(Component)]
-struct Hud;
-
-#[derive(Component)]
 struct LeakMarker(Vec2);
 
 #[derive(Component)]
@@ -1919,13 +2154,59 @@ struct ShipNameLabel(usize);
 struct ToolCard(Tool);
 
 #[derive(Component)]
-struct ToolGlyph;
+struct ToolGlyph {
+    tool: Tool,
+    normal: Handle<Image>,
+    active: Handle<Image>,
+}
 
 #[derive(Component)]
 struct ToolPanelUi;
 
 #[derive(Component)]
+struct ToolPanelPosition(Vec2);
+
+fn tool_panel_position(x: f32, y: f32, z: f32) -> (ToolPanelPosition, Transform) {
+    (
+        ToolPanelPosition(Vec2::new(x, y)),
+        Transform::from_xyz(x, y, z),
+    )
+}
+
+fn update_tool_panel_layout(windows: Query<&Window>, mut simulation: ResMut<Simulation>) {
+    let Ok(window) = windows.single() else { return };
+    if window.height() > 0.0 {
+        let width = window.width() * 720.0 / window.height();
+        // Toolbox.render: (padding, displayHeight - padding), pivot (0, 1).
+        let offset = Vec2::new(280.0 - width * 0.5, -510.0);
+        if simulation.tool_panel_offset != offset {
+            simulation.tool_panel_offset = offset;
+        }
+    }
+}
+
+fn sync_tool_panel_position(
+    simulation: Res<Simulation>,
+    mut widgets: Query<(&ToolPanelPosition, &mut Transform)>,
+) {
+    for (position, mut transform) in &mut widgets {
+        let point = position.0 + simulation.tool_panel_offset;
+        transform.translation.x = point.x;
+        transform.translation.y = point.y;
+    }
+}
+
+#[derive(Component)]
 struct ShipLayerLabel;
+
+#[derive(Component)]
+struct ShipLayerDropdownBackground;
+
+#[derive(Component)]
+struct ShipLayerDropdownOption(usize);
+
+#[derive(Component)]
+struct ShipLayerDropdownOptionLabel(usize);
 
 #[derive(Component)]
 struct TabButton(ToolboxTab);
@@ -1947,6 +2228,71 @@ struct SettingReadout(SettingValue);
 
 #[derive(Component)]
 struct ShipSearchText;
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+enum ShipUploadField {
+    #[default]
+    Name,
+    Description,
+    LayerName,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ShipUploadAction {
+    EditCurrent,
+    CreateNew,
+    AddLayer,
+    CycleLayer,
+    SelectResource(ShipResourceType),
+    SaveLocally,
+    Close,
+}
+
+#[derive(Resource, Default)]
+struct ShipUploadUiState {
+    description_scroll: ui_description_scroll::DescriptionScroll,
+    focus: Option<ShipUploadField>,
+    active_focus: Option<ShipUploadField>,
+    editors: [text_edit_state::TextEditState; 3],
+    notice: Option<String>,
+    active_layer: ShipLayer,
+    pending_resource: Option<ShipResourceType>,
+    preview_resource: Option<ShipResourceType>,
+    layer_tab_start: usize,
+}
+
+#[derive(Component)]
+struct ShipUploadButton(ShipUploadAction);
+
+#[derive(Component)]
+struct ShipUploadModalContent;
+
+#[derive(Component)]
+struct ShipUploadFieldControl(ShipUploadField);
+
+#[derive(Component)]
+struct ShipUploadNameText;
+
+#[derive(Component)]
+struct ShipUploadDescriptionText;
+
+#[derive(Component)]
+struct ShipUploadLayerText;
+
+#[derive(Component)]
+struct ShipUploadResourcePreview;
+
+#[derive(Component)]
+struct ShipUploadSaveControl;
+
+#[derive(Component)]
+struct ShipUploadLayerTab(ShipLayer);
+
+#[derive(Component)]
+struct ShipUploadLayerTabLabel(ShipLayer);
+
+#[derive(Component)]
+struct ShipUploadStatusText;
 
 #[derive(Component)]
 struct SeaColorPreview(bool);
@@ -1978,7 +2324,11 @@ struct ToolboxTitle;
 fn setup(
     mut commands: Commands,
     assets: Res<AssetServer>,
-    mut images: ResMut<Assets<Image>>,
+    (mut images, black_texture, retained): (
+        ResMut<Assets<Image>>,
+        Res<ship_black_texture::SharedBlackTexture>,
+        Res<ship_runtime_reset::ActiveThumbnail>,
+    ),
     mut meshes: ResMut<Assets<Mesh>>,
     mut shader_buffers: ResMut<Assets<ShaderBuffer>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
@@ -1995,15 +2345,7 @@ fn setup(
 ) {
     let gpu_physics = make_gpu_ship_physics_assets(&structure, &mut shader_buffers);
     commands.insert_resource(gpu_physics.clone());
-    commands
-        .spawn(Readback::buffer(gpu_physics.positions))
-        .observe(capture_gpu_ship_physics_readback);
-    commands
-        .spawn(Readback::buffer(gpu_physics.water.clone()))
-        .observe(capture_gpu_water_readback);
-    commands
-        .spawn(Readback::buffer(gpu_physics.masks.clone()))
-        .observe(capture_gpu_mask_readback);
+    ship_physics::spawn_readbacks(&mut commands, &gpu_physics);
     let scaled_projection = Projection::Orthographic(OrthographicProjection {
         scaling_mode: ScalingMode::FixedVertical {
             viewport_height: 720.0,
@@ -2020,13 +2362,17 @@ fn setup(
     commands.spawn((
         Camera2d,
         Camera {
-            order: 1,
+            order: 4,
             clear_color: ClearColorConfig::None,
             ..default()
         },
-        scaled_projection,
-        RenderLayers::layer(1),
+        scaled_projection.clone(),
+        RenderLayers::layer(3),
     ));
+    commands.spawn((Camera2d, Camera { order: 1, clear_color: ClearColorConfig::None, ..default() }, scaled_projection.clone(), RenderLayers::layer(1)));
+    commands.spawn((Camera2d, Camera { order: 2, clear_color: ClearColorConfig::None, ..default() }, scaled_projection, toolbox_viewport::ContentCamera, RenderLayers::layer(2)));
+    commands.spawn((Camera2d,Camera {order:3,clear_color:ClearColorConfig::None,..default()},Projection::Orthographic(OrthographicProjection::default_2d()),ship_browser_ui::BrowserCamera,RenderLayers::layer(4)));
+    ship_browser_ui::spawn_scrollbar(&mut commands);
 
     // Layered sea bands retain the original blue depth gradient.
     let depth_mesh = meshes.add(ocean_depth_mesh(WORLD_WIDTH, simulation.sea_depth));
@@ -2113,18 +2459,24 @@ fn setup(
     ));
 
     let initial_choice = &catalog.0[simulation.ship_index.min(catalog.0.len() - 1)];
-    let ship = load_ship_visual_asset(initial_choice, &initial_choice.asset, &assets, &mut images);
+    let (ship, internal_lights, external_lights) = if let Some(thumbnail)=&retained.0 {
+        let appearance=ship_runtime_reset::appearance(thumbnail,0,&mut images,&black_texture.0);
+        (appearance.texture,appearance.internal,appearance.external)
+    } else {
+        let ship=load_ship_visual_asset(initial_choice,&initial_choice.asset,&assets,&mut images);
+        let (internal,external)=load_ship_light_assets(initial_choice,&ShipLayer::default(),&assets,&mut images,&black_texture.0);
+        (ship,internal,external)
+    };
     commands.spawn((
         ShipSprite,
         Sprite::from_image(ship.clone()),
         Transform::from_xyz(0.0, SEA_LEVEL, 0.0).with_scale(Vec3::ONE),
         Visibility::Hidden,
     ));
-    let mesh = build_deformable_ship_mesh(&structure);
+    let mesh = ship_gpu_geometry::build_mesh(&structure);
     let mesh_handle = meshes.add(mesh);
     let texture = ship.clone();
-    let (internal_lights, external_lights) =
-        load_ship_light_assets(initial_choice, &ShipLayer::default(), &assets, &mut images);
+
     let ship_material = ship_materials.add(ShipMaterial {
         texture,
         internal_lights,
@@ -2138,9 +2490,14 @@ fn setup(
         sea_color: simulation.water_color(),
         water: gpu_physics.water.clone(),
         masks: gpu_physics.masks.clone(),
+        positions: gpu_physics.positions.clone(),
+        coverage_mode: Vec4::ZERO,
+        coverage: Handle::default(),
     });
     commands.spawn((
         ShipMesh(mesh_handle.clone(), ship_material.clone()),
+        ship_gpu_geometry::GpuGeometry,
+        bevy::camera::visibility::NoFrustumCulling,
         MeshSyncState(structure.breached.clone(), gpu_mask_data(&structure)),
         Mesh2d(mesh_handle),
         MeshMaterial2d(ship_material.clone()),
@@ -2148,16 +2505,19 @@ fn setup(
         Transform::from_xyz(0.0, SEA_LEVEL, 0.0),
     ));
     let strut_masks = gpu_mask_data(&structure);
-    let strut_mesh = meshes.add(ship_struts::build_mesh(&structure, &strut_masks));
+    let strut_mesh = meshes.add(ship_gpu_geometry::build_struts_mesh(&structure));
     commands.spawn((
         ship_struts::ShipStruts {
             mesh: strut_mesh.clone(),
             dimensions: (structure.texel_width, structure.texel_height),
             masks: strut_masks,
+            occupied: structure.texel_solid.clone(),
         },
+        ship_gpu_geometry::GpuGeometry,
+        bevy::camera::visibility::NoFrustumCulling,
         Mesh2d(strut_mesh),
         MeshMaterial2d(ship_material),
-        Transform::from_xyz(0.0, SEA_LEVEL, -0.001),
+        Transform::from_xyz(0.0, SEA_LEVEL, 0.001),
     ));
     let (water_mesh_data, water_cells) = build_internal_water_mesh(&structure);
     let water_mesh = meshes.add(water_mesh_data);
@@ -2183,15 +2543,17 @@ fn setup(
         MeshMaterial2d(water_material),
         Transform::from_xyz(0.0, SEA_LEVEL, 0.5),
     ));
-    // Source shader extends the half-opacity disk by distance/10 at its edge.
-    // A 2.3-unit quad covers the complete falloff when scaled by tool radius.
-    let brush_mesh = meshes.add(Rectangle::new(2.3, 2.3));
+    // Present the source-RGB sea frame, composing the optional brush before
+    // the final sRGB conversion. The unit quad is fitted to world view bounds.
+    let brush_mesh = meshes.add(Rectangle::new(1.0, 1.0));
     let brush_material = brush_materials.add(tools::brush_preview::BrushMaterial {
         cursor_radius: Vec4::new(0.0, 0.0, 1.0, 0.0),
         color: Vec4::new(1.0, 0.0, 0.0, 1.0),
+        background: Handle::default(),
     });
     commands.spawn((
         DamageBrushPreview,
+        RenderLayers::layer(tools::brush_preview::OVERLAY_LAYER),
         Mesh2d(brush_mesh),
         MeshMaterial2d(brush_material),
         Transform::from_xyz(0.0, 0.0, 8.0),
@@ -2221,12 +2583,14 @@ fn setup(
 
     // Toolbox panel and tabs inspired by the original game layout.
     commands.spawn((
+        toolbox_viewport::Backdrop,
         ToolboxContent,
         Sprite::from_color(Color::srgb(0.32, 0.35, 0.52), Vec2::new(356.0, 706.0)),
         Transform::from_xyz(-465.0, 0.0, 19.0),
         RenderLayers::layer(1),
     ));
     commands.spawn((
+        toolbox_viewport::Backdrop,
         ToolboxContent,
         Sprite::from_color(
             Color::srgba(0.08, 0.10, 0.16, 0.96),
@@ -2243,13 +2607,14 @@ fn setup(
     ));
     commands.spawn((
         ToolboxTitle,
-        Text2d::new("▼  Toolbox"),
+        Text2d::new("Toolbox"),
         TextFont {
             font_size: FontSize::Px(20.0),
             ..default()
         },
         TextColor(Color::WHITE),
-        Transform::from_xyz(-585.0, 333.0, 22.0),
+        Transform::from_xyz(-603.0,344.0,22.0),
+        bevy::sprite::Anchor::TOP_LEFT,
         RenderLayers::layer(1),
     ));
     commands.spawn((
@@ -2259,12 +2624,14 @@ fn setup(
         RenderLayers::layer(1),
     ));
     commands.spawn((
+        toolbox_viewport::ScrollTrack,
         ToolboxContent,
         Sprite::from_color(Color::srgb(0.12, 0.14, 0.20), Vec2::new(8.0, 632.0)),
         Transform::from_xyz(-297.0, -14.0, 21.5),
         RenderLayers::layer(1),
     ));
     commands.spawn((
+        toolbox_viewport::ScrollThumb,
         ToolboxContent,
         Sprite::from_color(Color::srgb(0.23, 0.28, 0.43), Vec2::new(7.0, 48.0)),
         Transform::from_xyz(-297.0, 214.0, 22.0),
@@ -2300,12 +2667,14 @@ fn setup(
     commands.spawn((
         ToolboxContent,
         Sprite::from_color(Color::srgb(0.19, 0.20, 0.21), Vec2::new(225.0, 30.0)),
+        TabPage(ToolboxTab::Ships),
         Transform::from_xyz(-514.0, 253.0, 21.0),
         RenderLayers::layer(1),
     ));
     commands.spawn((
         ToolboxContent,
         ShipSearchText,
+        TabPage(ToolboxTab::Ships),
         Text2d::new(""),
         TextFont {
             font_size: FontSize::Px(15.0),
@@ -2322,12 +2691,16 @@ fn setup(
         16.0,
         Color::WHITE,
     );
-    for (text, y) in [
-        ("Edit current ship", 214.0),
-        ("Import PNG (drop onto window)", 174.0),
-    ] {
+    for (text, y) in [("Edit current ship", 214.0), ("Create new ship", 174.0)] {
+        let action = if text == "Edit current ship" {
+            ShipUploadAction::EditCurrent
+        } else {
+            ShipUploadAction::CreateNew
+        };
         commands.spawn((
             ToolboxContent,
+            ShipUploadButton(action),
+            TabPage(ToolboxTab::Ships),
             Sprite::from_color(Color::srgb(0.24, 0.28, 0.43), Vec2::new(326.0, 34.0)),
             Transform::from_xyz(-465.0, y, 21.0),
             RenderLayers::layer(1),
@@ -2339,6 +2712,254 @@ fn setup(
             16.0,
             Color::WHITE,
         );
+    }
+    commands.spawn((
+        ShipUploadModalContent,
+        Sprite::from_color(Color::srgba(0.0, 0.0, 0.0, 0.55), Vec2::new(1280.0, 720.0)),
+        Transform::from_xyz(0.0, 0.0, 80.0),
+        RenderLayers::layer(1),
+        Visibility::Hidden,
+    ));
+    commands.spawn((
+        ShipUploadModalContent,
+        Sprite::from_color(Color::srgb(0.10, 0.12, 0.16), Vec2::new(560.0, 700.0)),
+        Transform::from_xyz(0.0, 0.0, 81.0),
+        RenderLayers::layer(1),
+        Visibility::Hidden,
+    ));
+    commands.spawn((
+        ShipUploadModalContent,
+        Text2d::new("Edit Ship"),
+        TextFont {
+            font_size: FontSize::Px(22.0),
+            ..default()
+        },
+        TextColor(Color::WHITE),
+        Transform::from_xyz(0.0, 326.0, 83.0),
+        RenderLayers::layer(1),
+        Visibility::Hidden,
+    ));
+    commands.spawn((
+        ShipUploadModalContent,
+        ShipUploadButton(ShipUploadAction::Close),
+        Sprite::from_color(Color::srgb(0.34, 0.36, 0.58), Vec2::new(30.0, 30.0)),
+        Transform::from_xyz(260.0, 326.0, 82.0),
+        RenderLayers::layer(1),
+        Visibility::Hidden,
+    ));
+    commands.spawn((
+        ShipUploadModalContent,
+        Text2d::new("×"),
+        TextFont {
+            font_size: FontSize::Px(24.0),
+            ..default()
+        },
+        TextColor(Color::WHITE),
+        Transform::from_xyz(260.0, 326.0, 83.0),
+        RenderLayers::layer(1),
+        Visibility::Hidden,
+    ));
+    for (label, y) in [("Ship name", 300.0), ("Description", 215.0)] {
+        commands.spawn((
+            ShipUploadModalContent,
+            Text2d::new(label),
+            TextFont {
+                font_size: FontSize::Px(18.0),
+                ..default()
+            },
+            TextColor(Color::WHITE),
+            Transform::from_xyz(-205.0, y, 82.0),
+            RenderLayers::layer(1),
+            Visibility::Hidden,
+        ));
+    }
+    for (field, y, height) in [
+        (ShipUploadField::Name, 263.0, 38.0),
+        (ShipUploadField::Description, 150.0, 96.0),
+    ] {
+        commands.spawn((
+            ShipUploadModalContent,
+            ShipUploadFieldControl(field),
+            Sprite::from_color(Color::srgb(0.19, 0.20, 0.21), Vec2::new(410.0, height)),
+            Transform::from_xyz(0.0, y, 82.0),
+            RenderLayers::layer(1),
+            Visibility::Hidden,
+        ));
+    }
+    commands.spawn((
+        ShipUploadModalContent,
+        ShipUploadNameText,
+        Text2d::new(""),
+        TextFont {
+            font_size: FontSize::Px(18.0),
+            ..default()
+        },
+        TextColor(Color::WHITE),
+        Transform::from_xyz(-196.0, 263.0, 83.0),
+        RenderLayers::layer(1),
+        Visibility::Hidden,
+    ));
+    commands.spawn((
+        ShipUploadModalContent,
+        ShipUploadDescriptionText,
+        Text2d::new(""),
+        TextFont {
+            font_size: FontSize::Px(18.0),
+            ..default()
+        },
+        TextColor(Color::WHITE),
+        Transform::from_xyz(-196.0, 150.0, 83.0),
+        RenderLayers::layer(1),
+        Visibility::Hidden,
+    ));
+    commands.spawn((
+        ShipUploadModalContent,
+        ShipUploadFieldControl(ShipUploadField::LayerName),
+        Sprite::from_color(Color::srgb(0.19, 0.20, 0.21), Vec2::new(330.0, 38.0)),
+        Transform::from_xyz(-40.0, -108.0, 82.0),
+        RenderLayers::layer(1),
+        Visibility::Hidden,
+    ));
+    commands.spawn((
+        ShipUploadModalContent,
+        ShipUploadLayerText,
+        Text2d::new(""),
+        TextFont {
+            font_size: FontSize::Px(18.0),
+            ..default()
+        },
+        TextColor(Color::WHITE),
+        Transform::from_xyz(-194.0, -108.0, 83.0),
+        RenderLayers::layer(1),
+        Visibility::Hidden,
+    ));
+    commands.spawn((
+        ShipUploadModalContent,
+        Text2d::new("New layer"),
+        TextFont {
+            font_size: FontSize::Px(14.0),
+            ..default()
+        },
+        TextColor(Color::WHITE),
+        Transform::from_xyz(-202.0, -82.0, 83.0),
+        RenderLayers::layer(1),
+        Visibility::Hidden,
+    ));
+    for (resource, label, x, y) in [
+        (ShipResourceType::Base, "BASE (Required)", -135.0, -180.0),
+        (
+            ShipResourceType::Materials,
+            "MATERIALS (Optional)",
+            135.0,
+            -180.0,
+        ),
+        (
+            ShipResourceType::Texture,
+            "TEXTURE (Optional)",
+            -135.0,
+            -219.0,
+        ),
+        (
+            ShipResourceType::InLights,
+            "INLIGHTS (Optional)",
+            135.0,
+            -219.0,
+        ),
+        (
+            ShipResourceType::ExLights,
+            "EXLIGHTS (Optional)",
+            0.0,
+            -258.0,
+        ),
+    ] {
+        commands.spawn((
+            ShipUploadModalContent,
+            ShipUploadButton(ShipUploadAction::SelectResource(resource)),
+            Sprite::from_color(Color::srgb(0.24, 0.28, 0.43), Vec2::new(260.0, 34.0)),
+            Transform::from_xyz(x, y, 82.0),
+            RenderLayers::layer(1),
+            Visibility::Hidden,
+        ));
+        commands.spawn((
+            ShipUploadModalContent,
+            Text2d::new(label),
+            TextFont {
+                font_size: FontSize::Px(15.0),
+                ..default()
+            },
+            TextColor(Color::WHITE),
+            Transform::from_xyz(x, y, 83.0),
+            RenderLayers::layer(1),
+            Visibility::Hidden,
+        ));
+    }
+    commands.spawn((
+        ShipUploadModalContent,
+        ShipUploadStatusText,
+        Text2d::new(""),
+        TextFont {
+            font_size: FontSize::Px(16.0),
+            ..default()
+        },
+        TextColor(Color::WHITE),
+        Transform::from_xyz(0.0, -286.0, 83.0),
+        RenderLayers::layer(1),
+        Visibility::Hidden,
+    ));
+    for (action, text, x, y) in [
+        (ShipUploadAction::AddLayer, "Add Layer", 190.0, -108.0),
+        (ShipUploadAction::CycleLayer, "Next Layer", 190.0, -145.0),
+        (
+            ShipUploadAction::SaveLocally,
+            "Save Locally",
+            -105.0,
+            -326.0,
+        ),
+        (ShipUploadAction::Close, "Close", 105.0, -326.0),
+    ] {
+        let button_entity = commands
+            .spawn((
+                ShipUploadModalContent,
+                ShipUploadButton(action),
+                Sprite::from_color(
+                    Color::srgb(0.24, 0.28, 0.43),
+                    Vec2::new(
+                        if matches!(
+                            action,
+                            ShipUploadAction::AddLayer | ShipUploadAction::CycleLayer
+                        ) {
+                            112.0
+                        } else {
+                            180.0
+                        },
+                        38.0,
+                    ),
+                ),
+                Transform::from_xyz(x, y, 82.0),
+                RenderLayers::layer(1),
+                Visibility::Hidden,
+            ))
+            .id();
+        if action == ShipUploadAction::SaveLocally {
+            commands.entity(button_entity).insert(ShipUploadSaveControl);
+        }
+        let label_entity = commands
+            .spawn((
+                ShipUploadModalContent,
+                Text2d::new(text),
+                TextFont {
+                    font_size: FontSize::Px(17.0),
+                    ..default()
+                },
+                TextColor(Color::WHITE),
+                Transform::from_xyz(x, y, 83.0),
+                RenderLayers::layer(1),
+                Visibility::Hidden,
+            ))
+            .id();
+        if action == ShipUploadAction::SaveLocally {
+            commands.entity(label_entity).insert(ShipUploadSaveControl);
+        }
     }
     for (index, choice) in catalog.0.iter().enumerate() {
         spawn_ship_catalog_card(&mut commands, &assets, index, choice, index < 4);
@@ -2353,6 +2974,7 @@ fn setup(
         ToolboxTab::Advanced,
     ] {
         commands.spawn((
+            toolbox_viewport::PageBackdrop,
             TabPage(tab),
             ToolboxContent,
             Sprite::from_color(Color::srgb(0.10, 0.13, 0.20), Vec2::new(326.0, 600.0)),
@@ -2438,7 +3060,7 @@ fn setup(
             Vec3::new(-514.0, y, 25.0),
         );
     }
-    let color_picker_mesh = meshes.add(color_picker_mesh(simulation.sea_hue));
+    let color_picker_mesh = meshes.add(color_picker_mesh(simulation.sea_color_memory.read(simulation.sea_color).x));
     let color_picker_material = materials.add(ColorMaterial::default());
     commands.spawn((
         SeaColorPicker(color_picker_mesh.clone()),
@@ -2474,7 +3096,7 @@ fn setup(
     // Source AlphaPreviewHalf: opaque colour on the left, alpha over checks on the right.
     for row in 0..8 {
         for column in 0..4 {
-            let shade = if (row + column) % 2 == 0 { 0.72 } else { 0.46 };
+            let shade = if (row + column) % 2 == 0 { 204.0 / 255.0 } else { 128.0 / 255.0 };
             commands.spawn((
                 TabPage(ToolboxTab::Graphics),
                 ToolboxContent,
@@ -2550,50 +3172,13 @@ fn setup(
             Visibility::Hidden,
         ));
     }
+    music_controls::spawn(&mut commands, &assets);
     spawn_page_label(
         &mut commands,
-        ToolboxTab::Music,
-        "MUSIC",
-        Vec3::new(-465.0, 155.0, 25.0),
+        ToolboxTab::Performance,
+        "Iterations per frame",
+        Vec3::new(-465.0, 260.0, 25.0),
         15.0,
-    );
-    music_player::spawn_controls(&mut commands, &assets);
-    commands.spawn((
-        Text2d::new("Loading soundtrack…"),
-        TextFont {
-            font_size: FontSize::Px(11.0),
-            ..default()
-        },
-        TextColor(Color::WHITE),
-        Transform::from_xyz(-445.0, 70.0, 25.0),
-        RenderLayers::layer(1),
-        TabPage(ToolboxTab::Music),
-        MusicStatus,
-        Visibility::Hidden,
-    ));
-    spawn_page_label(
-        &mut commands,
-        ToolboxTab::Music,
-        "Volume",
-        Vec3::new(-535.0, 35.0, 25.0),
-        12.0,
-    );
-    spawn_setting_readout(
-        &mut commands,
-        SettingValue::Number(20),
-        Vec3::new(-405.0, 35.0, 25.0),
-    );
-    spawn_setting_button(
-        &mut commands,
-        "−",
-        SettingAction::Adjust(20, -0.05),
-        Vec3::new(-322.0, 35.0, 25.0),
-    );
-    spawn_setting_button(
-        &mut commands,
-        "+",
-        SettingAction::Adjust(20, 0.05),
-        Vec3::new(-292.0, 35.0, 25.0),
     );
     for (label, id, y) in [("Physics", 16usize, 220.0), ("Water flow", 17, 184.0)] {
         spawn_setting_row(&mut commands, ToolboxTab::Performance, id, y);
@@ -2610,71 +3195,17 @@ fn setup(
             Vec3::new(-514.0, y, 25.0),
         );
     }
-    spawn_page_label(
-        &mut commands,
-        ToolboxTab::Advanced,
-        "ADVANCED",
-        Vec3::new(-465.0, 155.0, 25.0),
-        15.0,
-    );
-    spawn_page_label(
-        &mut commands,
-        ToolboxTab::Advanced,
-        "Flood, cut, repair, and pump tools",
-        Vec3::new(-465.0, 95.0, 25.0),
-        11.0,
-    );
-    spawn_page_label(
-        &mut commands,
-        ToolboxTab::Advanced,
-        "Show flood water",
-        Vec3::new(-535.0, 20.0, 25.0),
-        12.0,
-    );
     spawn_setting_button(
         &mut commands,
-        "✓",
-        SettingAction::ToggleWater,
-        Vec3::new(-618.0, 20.0, 25.0),
-    );
-    spawn_page_label(
-        &mut commands,
-        ToolboxTab::Advanced,
-        "Hole / tool size",
-        Vec3::new(-530.0, 55.0, 25.0),
-        12.0,
-    );
-    spawn_setting_readout(
-        &mut commands,
-        SettingValue::Number(19),
-        Vec3::new(-405.0, 55.0, 25.0),
-    );
-    spawn_setting_button(
-        &mut commands,
-        "−",
-        SettingAction::Adjust(19, -1.0),
-        Vec3::new(-322.0, 55.0, 25.0),
-    );
-    spawn_setting_button(
-        &mut commands,
-        "+",
-        SettingAction::Adjust(19, 1.0),
-        Vec3::new(-292.0, 55.0, 25.0),
+        "Gen Palette",
+        SettingAction::GeneratePalette,
+        Vec3::new(-465.0, 252.0, 25.0),
     );
 
-    commands.spawn((
-        ToolPanelUi,
-        Sprite::from_color(
-            Color::srgba(0.12, 0.30, 0.52, 0.91),
-            Vec2::new(370.0, 190.0),
-        ),
-        Transform::from_xyz(-85.0, 255.0, 19.0),
-        RenderLayers::layer(1),
-    ));
     for (index, (tool, icon)) in [
         (Tool::Break, "icons/Break.png"),
-        (Tool::Dry, "icons/Dry.png"),
         (Tool::Flood, "icons/Flood.png"),
+        (Tool::Dry, "icons/Dry.png"),
         (Tool::Move, "icons/Move.png"),
     ]
     .into_iter()
@@ -2683,35 +3214,51 @@ fn setup(
         let x = -220.0 + index as f32 * 78.0;
         commands.spawn((
             ToolCard(tool),
+            source_tools_layout::Role::Button(tool),
             Sprite::from_color(Color::srgb(0.78, 0.48, 0.02), Vec2::splat(56.0)),
-            Transform::from_xyz(x, 250.0, 21.0),
+            tool_panel_position(x, 250.0, 21.0),
             RenderLayers::layer(1),
         ));
-        let mut glyph = Sprite::from_image(assets.load(icon));
+        let normal = assets.load(icon);
+        let active = assets.load(match tool {
+            Tool::Break => "icons/Break2.png",
+            Tool::Flood => "icons/Flood2.png",
+            Tool::Dry => "icons/Dry2.png",
+            Tool::Move => "icons/Move2.png",
+            Tool::None => unreachable!("No icon for the source null tool slot"),
+        });
+        let mut glyph = Sprite::from_image(normal.clone());
         glyph.custom_size = Some(Vec2::splat(46.0));
         commands.spawn((
-            ToolGlyph,
+            ToolGlyph {
+                tool,
+                normal,
+                active,
+            },
+            source_tools_layout::Role::Image(tool),
             glyph,
-            Transform::from_xyz(x, 250.0, 22.0),
+            tool_panel_position(x, 250.0, 22.0),
             RenderLayers::layer(1),
         ));
     }
     commands.spawn((
         ToolPanelUi,
+        source_tools_layout::Role::Combo,
         Sprite::from_color(Color::srgb(0.30, 0.40, 0.54), Vec2::new(230.0, 28.0)),
-        Transform::from_xyz(-145.0, 310.0, 21.0),
+        tool_panel_position(-145.0, 310.0, 21.0),
         RenderLayers::layer(1),
     ));
     commands.spawn((
         ToolPanelUi,
         ShipLayerLabel,
+        source_tools_layout::Role::ComboValue,
         Text2d::new("Default"),
         TextFont {
             font_size: FontSize::Px(15.0),
             ..default()
         },
         TextColor(Color::WHITE),
-        Transform::from_xyz(-145.0, 310.0, 22.0),
+        tool_panel_position(-145.0, 310.0, 22.0),
         RenderLayers::layer(1),
     ));
     spawn_tool_panel_label(
@@ -2722,16 +3269,33 @@ fn setup(
     );
     commands.spawn((
         ToolPanelUi,
+        source_tools_layout::Role::Arrow,
         Sprite::from_color(Color::srgb(0.24, 0.29, 0.43), Vec2::new(22.0, 24.0)),
-        Transform::from_xyz(-40.0, 310.0, 21.0),
+        tool_panel_position(-40.0, 310.0, 21.0),
         RenderLayers::layer(1),
     ));
-    spawn_tool_panel_label(&mut commands, "▼", Vec3::new(-40.0, 310.0, 22.0), 14.0);
+    let max_layer_count = catalog.1.iter().map(Vec::len).max().unwrap_or(1).max(1);
+    let dropdown_height = max_layer_count as f32 * 24.0;
+    commands.spawn((
+        ShipLayerDropdownBackground,
+        source_tools_layout::Role::Popup,
+        Sprite::from_color(
+            Color::srgba(0.07, 0.08, 0.12, 0.94),
+            Vec2::new(230.0, dropdown_height),
+        ),
+        tool_panel_position(-145.0, 297.0 - dropdown_height * 0.5, 39.0),
+        RenderLayers::layer(1),
+        Visibility::Hidden,
+    ));
+    for index in 0..max_layer_count {
+        spawn_ship_layer_dropdown_option(&mut commands, index);
+    }
     commands.spawn((
         ToolPanelUi,
         SettingRow(19),
+        source_tools_layout::Role::Size,
         Sprite::from_color(Color::srgb(0.30, 0.40, 0.54), Vec2::new(230.0, 28.0)),
-        Transform::from_xyz(-145.0, 188.0, 21.0),
+        tool_panel_position(-145.0, 188.0, 21.0),
         RenderLayers::layer(1),
         Visibility::Inherited,
     ));
@@ -2744,13 +3308,14 @@ fn setup(
     commands.spawn((
         ToolPanelUi,
         SettingReadout(SettingValue::Number(19)),
+        source_tools_layout::Role::SizeValue,
         Text2d::new("1.000"),
         TextFont {
             font_size: FontSize::Px(15.0),
             ..default()
         },
         TextColor(Color::WHITE),
-        Transform::from_xyz(-145.0, 188.0, 22.0),
+        tool_panel_position(-145.0, 188.0, 22.0),
         RenderLayers::layer(1),
     ));
     spawn_tool_panel_label(
@@ -2759,22 +3324,10 @@ fn setup(
         Vec3::new(-85.0, 163.0, 22.0),
         10.0,
     );
-
-    commands.spawn((
-        Hud,
-        Text2d::new("SINKING SIMULATOR  /  BEVY PORT"),
-        TextFont {
-            font_size: FontSize::Px(14.0),
-            ..default()
-        },
-        TextColor(Color::WHITE),
-        Transform::from_xyz(175.0, 320.0, 10.0),
-        RenderLayers::layer(1),
-    ));
 }
 
-/// Combine current damage with GPU breakage. New tool holes must not restore
-/// links previously broken by stress, even when a readback is one frame old.
+/// Legacy CPU rendering approximation. A readback cannot establish the latest
+/// GPU topology, so this result must never be uploaded into the live solver.
 fn current_render_masks(
     structure: &ShipStructure,
     snapshot: &GpuShipPhysicsSnapshot,
@@ -2822,7 +3375,7 @@ fn sync_deformed_mesh(
     structure: Res<ShipStructure>,
     snapshot: Res<GpuShipPhysicsSnapshot>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut ship_meshes: Query<(&ShipMesh, &mut MeshSyncState)>,
+    mut ship_meshes: Query<(&ShipMesh, &mut MeshSyncState), Without<ship_gpu_geometry::GpuGeometry>>,
 ) {
     let masks = current_render_masks(&structure, &snapshot);
     for (ship_mesh, mut sync_state) in &mut ship_meshes {
@@ -3071,7 +3624,7 @@ fn sync_internal_water_mesh(
 }
 
 fn spawn_label(commands: &mut Commands, text: &str, position: Vec3, size: f32, color: Color) {
-    commands.spawn((
+    let entity = commands.spawn((
         ToolboxContent,
         Text2d::new(text.to_string()),
         TextFont {
@@ -3081,18 +3634,21 @@ fn spawn_label(commands: &mut Commands, text: &str, position: Vec3, size: f32, c
         TextColor(color),
         Transform::from_translation(position),
         RenderLayers::layer(1),
-    ));
+    )).id();
+    if position.y < 277.0 { commands.entity(entity).insert(TabPage(ToolboxTab::Ships)); }
 }
 
 fn spawn_tool_panel_label(commands: &mut Commands, text: &str, position: Vec3, size: f32) {
     commands.spawn((
         ToolPanelUi,
+        match text {"Show Layer"=>source_tools_layout::Role::ComboLabel,"Tool Size"=>source_tools_layout::Role::SizeLabel,_=>source_tools_layout::Role::Hint},
         Text2d::new(text),
         TextFont {
             font_size: FontSize::Px(size),
             ..default()
         },
         TextColor(Color::WHITE),
+        ToolPanelPosition(position.truncate()),
         Transform::from_translation(position),
         RenderLayers::layer(1),
         Visibility::Inherited,
@@ -3106,6 +3662,10 @@ fn spawn_page_label(
     position: Vec3,
     size: f32,
 ) {
+    // Original dragScalar renders the right-hand label from frame.max.x +
+    // ItemInnerSpacing.x, while numeric text remains centered in its frame.
+    let right_hand = position.x == -391.0;
+    let position = if right_hand { Vec3::new(-514.0 + 225.0 * 0.5 + 4.0, position.y, position.z) } else { position };
     commands.spawn((
         Text2d::new(text),
         TextFont {
@@ -3114,6 +3674,7 @@ fn spawn_page_label(
         },
         TextColor(Color::WHITE),
         Transform::from_translation(position),
+        if right_hand { bevy::sprite::Anchor::CENTER_LEFT } else { bevy::sprite::Anchor::CENTER },
         RenderLayers::layer(1),
         ToolboxContent,
         TabPage(tab),
@@ -3146,6 +3707,7 @@ fn spawn_setting_button(
     let page = match action {
         SettingAction::ToggleCycle | SettingAction::ToggleTools => ToolboxTab::Graphics,
         SettingAction::ToggleWater => ToolboxTab::Advanced,
+        SettingAction::GeneratePalette => ToolboxTab::Advanced,
         SettingAction::Adjust(14 | 15 | 18 | 21 | 22 | 23 | 24, _) => ToolboxTab::Graphics,
         SettingAction::Adjust(16 | 17, _) => ToolboxTab::Performance,
         SettingAction::Adjust(19, _) => ToolboxTab::Advanced,
@@ -3164,6 +3726,8 @@ fn spawn_setting_button(
             Color::srgb(0.32, 0.34, 0.36),
             if toggle {
                 Vec2::splat(20.0)
+            } else if matches!(action, SettingAction::GeneratePalette) {
+                Vec2::new(326.0, 34.0)
             } else {
                 Vec2::new(30.0, 26.0)
             },
@@ -3217,67 +3781,867 @@ fn spawn_setting_readout(commands: &mut Commands, value: SettingValue, position:
     ));
 }
 
-fn handle_controls(
-    mut commands: Commands,
+fn handle_controls(keys: Res<ButtonInput<KeyCode>>, mut simulation: ResMut<Simulation>, capture:Option<Res<ui_input_capture::Capture>>) {
+    if !simulation.ship_search_active && !capture.is_some_and(|capture|capture.keyboard) {
+        for (key, tool) in [
+            (KeyCode::Digit1, Tool::Break),
+            (KeyCode::Digit2, Tool::Flood),
+            (KeyCode::Digit3, Tool::Dry),
+            (KeyCode::Digit4, Tool::Move),
+        ] {
+            if keys.just_pressed(key) {
+                simulation.tool.toggle(tool);
+            }
+        }
+    }
+}
+
+#[derive(Default)]
+struct ShipEditorInputLocal {
+    characters: bevy::ecs::message::MessageCursor<window_characters::CharacterInput>,
+    mouse: ui_mouse_input::MouseInput,
+}
+fn handle_ship_upload_ui(
+    mouse: Res<ButtonInput<MouseButton>>,
     keys: Res<ButtonInput<KeyCode>>,
+    mut keyboard_events: MessageReader<KeyboardInput>,
+    mut file_events: MessageReader<FileDragAndDrop>,
+    windows: Query<(&Window,Option<&bevy::window::RawHandleWrapper>)>,
+    catalog: Res<ShipCatalog>,
+    mut upload: ResMut<ship_upload::SourceShipUpload>,
+    mut ui: ResMut<ShipUploadUiState>,
+    editor_layout: Res<ship_upload_layout::Layout>,
+    (active_preview,active_thumbnail): (Res<ship_upload_preview::ActivePreview>,Option<Res<ship_runtime_reset::ActiveThumbnail>>),
+    buttons: Query<(&ShipUploadButton, &Transform, &Sprite, &Visibility)>,
+    fields: Query<(&ShipUploadFieldControl, &Transform, &Sprite)>,
+    layer_tabs: Query<(&ShipUploadLayerTab, &Transform, &Sprite, &Visibility)>,
     mut simulation: ResMut<Simulation>,
-    mut structure: ResMut<ShipStructure>,
-    mut snapshot: ResMut<GpuShipPhysicsSnapshot>,
-    mut gpu_physics: ResMut<GpuShipPhysicsAssets>,
-    mut shader_buffers: ResMut<Assets<ShaderBuffer>>,
-    markers: Query<Entity, With<LeakMarker>>,
+    (native_characters,mut clipboard,time,native_window): (Option<Res<Messages<window_characters::CharacterInput>>>,Option<ResMut<editor_clipboard::Clipboard>>,Option<Res<Time>>,Option<NonSend<window_bevy::LiveWindow>>),
+    mut input_local: Local<ShipEditorInputLocal>,
 ) {
-    if keys.just_pressed(KeyCode::Space) && !simulation.ship_search_active {
-        simulation.paused = !simulation.paused;
-    }
-    if !simulation.ship_search_active && keys.just_pressed(KeyCode::Digit1) {
-        simulation.tool = Tool::Break;
-    }
-    if !simulation.ship_search_active && keys.just_pressed(KeyCode::Digit2) {
-        simulation.tool = Tool::Dry;
-    }
-    if !simulation.ship_search_active && keys.just_pressed(KeyCode::KeyR) {
-        for entity in &markers {
-            commands.entity(entity).despawn();
+    let events: Vec<_> = keyboard_events.read().cloned().collect();
+    let committed_text=window_characters::read_units(native_characters.as_deref(),&mut input_local.characters);
+    let dropped_files: Vec<_> = file_events.read().cloned().collect();
+    if !upload.window_open() {ui.focus=None;ui.active_focus=None;}
+    if upload.window_open() {
+        for event in dropped_files {
+            let FileDragAndDrop::DroppedFile { path_buf, .. } = event else {
+                continue;
+            };
+            match parse_resource_path(&path_buf) {
+                Ok(resource) => {
+                    if upload.ship_name().is_empty() {
+                        upload.set_ship_name(&resource.ship);
+                    }
+                    let resource_type = ui.pending_resource.unwrap_or(resource.resource_type);
+                    let selected_layer = if ui.pending_resource.is_some() {
+                        ui.active_layer.clone()
+                    } else {
+                        resource.layer.clone()
+                    };
+                    let layer = ship_upload_resource_layer(resource_type, &selected_layer);
+                    match upload.select_file(path_buf, resource_type, layer) {
+                        Ok(()) => {
+                            ui.pending_resource = None;
+                            ui.preview_resource = Some(resource_type);
+                            ui.notice = Some(format!("Added {} resource", resource_type.name()))
+                        }
+                        Err(error) => ui.notice = Some(error),
+                    }
+                }
+                Err(error) => ui.notice = Some(error),
+            }
         }
-        *simulation = Simulation::default();
-        structure.breached.fill(false);
-        structure.leaking.fill(false);
-        structure.water.fill(0.0);
-        structure.positions = structure.rest_positions.clone();
-        structure.last_positions = structure.rest_positions.clone();
-        structure.strut_masks =
-            build_strut_masks(&structure.solid, structure.width, structure.height);
-        for spring in &mut structure.springs {
-            spring.broken = false;
+    }
+    let Ok((window,raw_handle)) = windows.single() else { return };
+    let field_padding=ui_text_viewport::field_padding(&editor_layout);
+    let field_font=editor_layout.text_height();
+    if upload.window_open() {
+        let font=editor_layout.text_height();
+        for editor in &mut ui.editors {editor.set_font_height(font);}
+        if let Some(source)=editor_layout.source_window.as_ref() {ui.description_scroll.configure(source.gui,source.viewport.source_length_to_world(1.0));}
+        if editor_layout.is_collapsed() {ui.focus=None;ui.active_focus=None;}
+        if let Some((_,_,sprite))=fields.iter().find(|(field,_,_)|field.0==ShipUploadField::Description) {
+            let size=sprite.custom_size.unwrap_or(Vec2::ZERO);let current=ui.editors[1].scroll_y;
+            ui.editors[1].scroll_y=ui.description_scroll.begin(size,current);
         }
-        structure.flooding = 0.0;
-        structure.motion_position = Vec2::new(0.0, SEA_LEVEL);
-        structure.motion_velocity = Vec2::ZERO;
-        structure.manual_offset = Vec2::ZERO;
-        structure.angle = 0.0;
-        structure.angular_velocity = 0.0;
-        let texel_rest_positions = structure.texel_rest_positions.clone();
-        structure.texel_positions.clone_from(&texel_rest_positions);
-        reset_gpu_ship_physics(&structure, &mut gpu_physics, &mut shader_buffers);
-        *snapshot = GpuShipPhysicsSnapshot::default();
+    }
+    input_local.mouse.update(time.as_ref().map_or(1.0/60.0,|time|time.delta_secs()),window.cursor_position(),
+        [mouse.pressed(MouseButton::Left),mouse.pressed(MouseButton::Right),mouse.pressed(MouseButton::Middle),
+         mouse.pressed(MouseButton::Back),mouse.pressed(MouseButton::Forward)]);
+    let clicked=input_local.mouse.buttons[0].clicked;
+    let double_clicked=input_local.mouse.buttons[0].double_clicked;
+    let cursor=input_local.mouse.position;
+    let scale = 720.0 / window.height().max(1.0);
+    let point = Vec2::new(
+        (cursor.x - window.width() * 0.5) * scale,
+        (window.height() * 0.5 - cursor.y) * scale,
+    );
+
+    let pointer_moved=input_local.mouse.delta!=Vec2::ZERO;
+    if upload.window_open() {
+        let local = point - editor_layout.position;
+        let point = editor_layout.chrome_point(point).or_else(||ship_upload_layout::content_point(&editor_layout,point))
+            .unwrap_or(Vec2::splat(-1.0e6));
+        let mut caret_click=None;
+        if let Some((_,transform,sprite))=fields.iter().find(|(field,_,_)|field.0==ShipUploadField::Description) {
+            let size=sprite.custom_size.unwrap_or(Vec2::ZERO);
+            let bar_point=if ui.description_scroll.held {local-Vec2::new(0.0,editor_layout.scroll)}else {point};
+            if ui.description_scroll.pointer(bar_point,mouse.pressed(MouseButton::Left),clicked,transform.translation.truncate(),size) {
+                ui.editors[1].scroll_y=ui.description_scroll.window.scroll.y;
+                if ui.focus!=Some(ShipUploadField::Description) {ui.focus=None;ui.active_focus=None;}
+                return;
+            }
+        }
+        if clicked {
+            for (tab, transform, sprite, visibility) in &layer_tabs {
+                if *visibility == Visibility::Hidden {
+                    continue;
+                }
+                let size = sprite.custom_size.unwrap_or(Vec2::ZERO) * 0.5;
+                if (point - transform.translation.truncate())
+                    .abs()
+                    .cmplt(size)
+                    .all()
+                {
+                    ui.active_layer = tab.0.clone();
+                    upload.set_current_layer(tab.0.clone());
+                    ui.notice = Some(format!("Editing layer {}", tab.0.display_name()));
+                }
+            }
+            let mut clicked_field=None;
+            for (field, transform, sprite) in &fields {
+                let size = sprite.custom_size.unwrap_or(Vec2::ZERO) * 0.5;
+                if (point - transform.translation.truncate())
+                    .abs()
+                    .cmplt(size)
+                    .all()
+                {
+                    clicked_field = Some(field.0);
+                    let center=transform.translation.truncate();
+                    let top=if field.0==ShipUploadField::Description {center.y+size.y-field_padding.y}else {center.y+field_font*0.5};
+                    caret_click=Some(Vec2::new(point.x-(center.x-size.x+field_padding.x),top-point.y));
+                }
+            }
+            ui.focus=clicked_field;
+            if ui.focus!=ui.active_focus {ui.active_focus=None;}
+            for (button, transform, sprite, visibility) in &buttons {
+                if *visibility == Visibility::Hidden {
+                    continue;
+                }
+                if !matches!(
+                    button.0,
+                    ShipUploadAction::AddLayer
+                        | ShipUploadAction::CycleLayer
+                        | ShipUploadAction::SelectResource(_)
+                        | ShipUploadAction::SaveLocally
+                        | ShipUploadAction::Close
+                ) {
+                    continue;
+                }
+                let size = sprite.custom_size.unwrap_or(Vec2::ZERO) * 0.5;
+                let center = if matches!(button.0, ShipUploadAction::Close) {
+                    transform.translation.truncate() - editor_layout.position
+                } else { transform.translation.truncate() };
+                if !(point - center)
+                    .abs()
+                    .cmplt(size)
+                    .all()
+                {
+                    continue;
+                }
+                match button.0 {
+                    ShipUploadAction::AddLayer => {
+                        let name = upload.new_layer_name();
+                        if upload.add_layer() {
+                            ui.active_layer = ShipLayer::new(name);
+                            upload.set_current_layer(ui.active_layer.clone());
+                            let index = upload
+                                .layers_in_order()
+                                .iter()
+                                .position(|layer| layer == &ui.active_layer)
+                                .unwrap_or(0);
+                            ui.layer_tab_start = (index / 4) * 4;
+                            ui.notice = Some("Layer added".into());
+                        } else {
+                            ui.notice = Some("Enter a layer name first".into());
+                        }
+                    }
+                    ShipUploadAction::CycleLayer => {
+                        let layers = upload.layers_in_order();
+                        if !layers.is_empty() {
+                            let current = layers
+                                .iter()
+                                .position(|layer| layer == &ui.active_layer)
+                                .unwrap_or(0);
+                            let next = (current + 1) % layers.len();
+                            ui.active_layer = layers[next].clone();
+                            ui.layer_tab_start = (next / 4) * 4;
+                            upload.set_current_layer(ui.active_layer.clone());
+                            ui.notice =
+                                Some(format!("Editing layer {}", ui.active_layer.display_name()));
+                        }
+                    }
+                    ShipUploadAction::SelectResource(resource_type) => {
+                        ui.pending_resource = Some(resource_type);
+                        ui.preview_resource = Some(resource_type);
+                        if let Some(path) = open_ship_resource_dialog(resource_type) {
+                            if upload.ship_name().is_empty() {
+                                if let Ok(parsed) = parse_resource_path(&path) {
+                                    upload.set_ship_name(&parsed.ship);
+                                }
+                            }
+                            let layer = ship_upload_resource_layer(resource_type, &ui.active_layer);
+                            match upload.select_file(path, resource_type, layer) {
+                                Ok(()) => {
+                                    ui.pending_resource = None;
+                                    ui.notice =
+                                        Some(format!("Added {} resource", resource_type.name()));
+                                }
+                                Err(error) => ui.notice = Some(error),
+                            }
+                        }
+                    }
+                    ShipUploadAction::Close => {
+                        upload.set_window_open(false);
+                        ui.notice = None;
+                    }
+                    ShipUploadAction::SaveLocally if upload.ship_name_is_blank() => {
+                        ui.notice = Some("Some required fields are missing".into());
+                    }
+                    ShipUploadAction::SaveLocally => match upload.thumbnail() {
+                        Ok(Some(_)) => {
+                            let materials =
+                                crate::main_globals::get_global_materials().to_owned_adapter();
+                            ui.notice = Some(
+                                match upload.save_locally(std::path::Path::new("."), &materials) {
+                                    Ok(()) => upload
+                                        .success_string()
+                                        .unwrap_or("Saved locally")
+                                        .to_owned(),
+                                    Err(error) => error,
+                                },
+                            );
+                        }
+                        Ok(None) => {
+                            ui.notice = Some("A default layer BASE image is required".into())
+                        }
+                        Err(error) => ui.notice = Some(error),
+                    },
+                    _ => {}
+                }
+            }
+        }
+        use text_edit_state::Key as EditKey;
+        if !upload.window_open() {ui.focus=None;ui.active_focus=None;return;}
+        let Some(field)=ui.focus else {ui.active_focus=None;return;};
+        let activate=ui.active_focus!=Some(field);
+        ui.active_focus=Some(field);
+        let index=match field {ShipUploadField::Name=>0,ShipUploadField::Description=>1,ShipUploadField::LayerName=>2};
+        let ui_state:&mut ShipUploadUiState=&mut ui;
+        let editor=&mut ui_state.editors[index];
+        let description_scroll=&mut ui_state.description_scroll;
+        if activate {editor.begin_focus(&upload.editor_units(field),field!=ShipUploadField::Description);}
+        else {editor.synchronize(&upload.editor_units(field),field!=ShipUploadField::Description);}
+        let ctrl=keys.pressed(KeyCode::ControlLeft)||keys.pressed(KeyCode::ControlRight);
+        let shift=keys.pressed(KeyCode::ShiftLeft)||keys.pressed(KeyCode::ShiftRight);
+        let alt=keys.pressed(KeyCode::AltLeft)||keys.pressed(KeyCode::AltRight);
+        let super_key=keys.pressed(KeyCode::SuperLeft)||keys.pressed(KeyCode::SuperRight);
+        let shortcut=ctrl && !alt && !shift && !super_key;
+        if !mouse.pressed(MouseButton::Left) {editor.selected_all_mouse_lock=false;}
+        if let Some(position)=caret_click {
+            if double_clicked || ctrl && field!=ShipUploadField::Description {editor.select_all();editor.selected_all_mouse_lock=true;}
+            else if !editor.selected_all_mouse_lock {editor.click(position.x+editor.scroll_x,if field==ShipUploadField::Description {position.y+editor.scroll_y}else {editor.font_height()*0.5});}
+        } else if mouse.pressed(MouseButton::Left) && pointer_moved && !editor.selected_all_mouse_lock {
+            if let Some((_,transform,sprite))=fields.iter().find(|(control,_,_)|control.0==field) {
+                let center=transform.translation.truncate();let size=sprite.custom_size.unwrap_or(Vec2::ZERO)*0.5;
+                let position=local-Vec2::new(0.0,editor_layout.scroll);
+                let top=if field==ShipUploadField::Description {center.y+size.y-field_padding.y}else {center.y+field_font*0.5};
+                editor.widget_drag(position.x-(center.x-size.x+field_padding.x)+editor.scroll_x,if field==ShipUploadField::Description {top-position.y+editor.scroll_y}else {field_font*0.5});
+            }
+        }
+        // Source inputText drains committed characters before navigation commands.
+        if !(ctrl && !alt) {
+            let mut additions=committed_text;
+            if native_window.is_none() {for event in events.iter().filter(|event|event.state==bevy::input::ButtonState::Pressed) {
+                if let Some(text)=&event.text {additions.extend(text.chars().filter(|c|!c.is_control()).flat_map(|c|window_characters::units(c as u32)));}
+            }}
+            editor.insert(&editor_clipboard::filtered(&additions,field==ShipUploadField::Description));
+        }
+        let mut cancelled=keys.just_pressed(KeyCode::Escape);
+        let mut deactivate=false;
+        for event in events.iter().filter(|event|event.state==bevy::input::ButtonState::Pressed) {
+            if cancelled || editor.error.is_some() {break;}
+            let shift_only=shift && !ctrl && !alt && !super_key;
+            let copy=shortcut && matches!(event.key_code,KeyCode::KeyC|KeyCode::Insert);
+            let cut=shortcut && event.key_code==KeyCode::KeyX || shift_only && event.key_code==KeyCode::Delete;
+            let paste=shortcut && event.key_code==KeyCode::KeyV || shift_only && event.key_code==KeyCode::Insert;
+            if copy || cut {
+                if let Some(units)=editor.clipboard_units() {
+                    if let Some(clipboard)=clipboard.as_mut() {clipboard.write(editor_clipboard::owner(raw_handle),&units);}
+                    if cut {if !editor.has_selection() {editor.select_all();}editor.cut();editor.cursor_follow=true;}
+                }
+                continue;
+            }
+            if paste {
+                if let Some(clipboard)=clipboard.as_mut() {
+                    if let Some(units)=clipboard.read(editor_clipboard::owner(raw_handle)) {
+                        let units=editor_clipboard::filtered(&units,field==ShipUploadField::Description);
+                        if !units.is_empty() {editor.paste(&units);editor.cursor_follow=true;}
+                    }
+                }
+                continue;
+            }
+            if field==ShipUploadField::Description && ctrl && matches!(event.key_code,KeyCode::ArrowUp|KeyCode::ArrowDown) {
+                description_scroll.key_scroll(event.key_code==KeyCode::ArrowDown);continue;
+            }
+            let command=match event.key_code {
+                KeyCode::ArrowUp if field==ShipUploadField::Description && !ctrl=>Some(EditKey::Up),
+                KeyCode::ArrowDown if field==ShipUploadField::Description && !ctrl=>Some(EditKey::Down),
+                KeyCode::ArrowLeft=>Some(if ctrl {EditKey::WordLeft}else {EditKey::Left}),
+                KeyCode::ArrowRight=>Some(if ctrl {EditKey::WordRight}else {EditKey::Right}),
+                KeyCode::Home=>Some(if ctrl {EditKey::TextStart}else {EditKey::LineStart}),
+                KeyCode::End=>Some(if ctrl {EditKey::TextEnd}else {EditKey::LineEnd}),
+                KeyCode::Delete=>Some(EditKey::Delete),KeyCode::Backspace=>{
+                    if ctrl && !editor.has_selection() {editor.on_key_pressed(EditKey::WordLeft,true);}
+                    Some(EditKey::Backspace)
+                },_=>None,
+            };
+            if let Some(command)=command {editor.on_key_pressed(command,shift);}
+            else if shortcut && event.key_code==KeyCode::KeyZ {editor.on_key_pressed(EditKey::Undo,false);if editor.error.is_none() {editor.clear_selection();}}
+            else if shortcut && event.key_code==KeyCode::KeyY {editor.on_key_pressed(EditKey::Redo,false);if editor.error.is_none() {editor.clear_selection();}}
+            else if shortcut && event.key_code==KeyCode::KeyA {editor.select_all();editor.cursor_follow=true;}
+            else if matches!(event.key_code,KeyCode::Enter|KeyCode::NumpadEnter) {
+                if field==ShipUploadField::Description && !ctrl {editor.insert(&[10]);}
+                else {deactivate=true;break;}
+            }
+            else if event.key_code==KeyCode::Escape {cancelled=true;break;}
+        }
+        if cancelled {upload.set_editor_units(field,&editor.cancel_units());}
+        else if let Some(units)=editor.publish() {upload.set_editor_units(field,&units);}
+        else if let Some(error)=editor.error {ui.notice=Some(format!("Text editor: {error}"));}
+        if cancelled || deactivate {ui.focus=None;ui.active_focus=None;}
         return;
     }
 
-    if !simulation.paused && simulation.cycle_enabled {
+    if simulation.toolbox_collapsed
+        || simulation.active_tab != ToolboxTab::Ships
+        || !mouse.just_pressed(MouseButton::Left)
+    {
+        return;
+    }
+    for (button, transform, sprite, visibility) in &buttons {
+        if *visibility == Visibility::Hidden {
+            continue;
+        }
+        if !matches!(
+            button.0,
+            ShipUploadAction::EditCurrent | ShipUploadAction::CreateNew
+        ) {
+            continue;
+        }
+        let size = sprite.custom_size.unwrap_or(Vec2::ZERO) * 0.5;
+        if !(point - transform.translation.truncate())
+            .abs()
+            .cmplt(size)
+            .all()
+        {
+            continue;
+        }
+        match button.0 {
+            ShipUploadAction::CreateNew => {
+                upload.create_new();
+                ui.editors = Default::default();
+                ui.focus=None;ui.active_focus=None;
+                ui.active_layer = ShipLayer::default();
+                ui.pending_resource = None;
+                ui.preview_resource = Some(ShipResourceType::Base);
+                ui.layer_tab_start = 0;
+                ui.notice = Some("Some required fields are missing".into());
+            }
+            ShipUploadAction::EditCurrent => {
+                ui.editors = Default::default();
+                ui.focus=None;ui.active_focus=None;
+                let active=active_preview.thumbnail.as_ref().or_else(||active_thumbnail.as_ref().and_then(|retained|retained.0.as_ref()));
+                let choice=catalog.0.get(simulation.ship_index);
+                if active.is_none() && choice.is_none() {ui.notice=Some("No ship is selected".into());continue;}
+                let thumbnail = if let Some(thumbnail)=active {Some(thumbnail.clone())} else if let Some(key) = choice.and_then(|choice|choice.source_key.as_ref()) {
+                    let mut resources = Vec::new();
+                    collect_source_ship_resources(
+                        std::path::Path::new("assets/source_ships"),
+                        &mut resources,
+                    );
+                    resources
+                        .into_iter()
+                        .find(|(candidate, _)| candidate == key)
+                        .and_then(|(_, files)| ship_thumbnail::ShipThumbnail::new(files).ok())
+                } else {
+                    let choice=choice.expect("active or catalog choice checked");
+                    let base_path = std::path::Path::new("assets").join(&choice.physics_asset);
+                    let texture_path = std::path::Path::new("assets").join(&choice.asset);
+                    let ship_name = choice.name.clone();
+                    let base = ShipResourceFile::new(
+                        base_path,
+                        ShipResource::new(
+                            ship_name.clone(),
+                            ShipLayer::default(),
+                            ShipResourceType::Base,
+                        ),
+                    );
+                    base.ok().and_then(|base| {
+                        let mut resources = vec![base];
+                        if choice.material_map
+                            && texture_path
+                                != std::path::Path::new("assets").join(&choice.physics_asset)
+                        {
+                            if let Ok(texture) = ShipResourceFile::new(
+                                texture_path,
+                                ShipResource::new(
+                                    ship_name,
+                                    ShipLayer::default(),
+                                    ShipResourceType::Texture,
+                                ),
+                            ) {
+                                resources.push(texture);
+                            }
+                        }
+                        ship_thumbnail::ShipThumbnail::new(resources).ok()
+                    })
+                };
+                if let Some(thumbnail) = thumbnail {
+                    upload.edit_current(&thumbnail);
+                    ui.active_layer = ShipLayer::default();
+                    ui.pending_resource = None;
+                    ui.preview_resource = Some(ShipResourceType::Base);
+                    ui.layer_tab_start = 0;
+                    ui.notice = Some("Edit ship resources, then save locally".into());
+                } else {
+                    ui.notice = Some("This ship has no editable BASE resource".into());
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+#[cfg(windows)]
+#[repr(C)]
+struct OpenFileNameW {
+    size: u32,
+    owner: *mut std::ffi::c_void,
+    instance: *mut std::ffi::c_void,
+    filter: *const u16,
+    custom_filter: *mut u16,
+    max_custom_filter: u32,
+    filter_index: u32,
+    file: *mut u16,
+    max_file: u32,
+    file_title: *mut u16,
+    max_file_title: u32,
+    initial_dir: *const u16,
+    title: *const u16,
+    flags: u32,
+    file_offset: u16,
+    file_extension: u16,
+    default_extension: *const u16,
+    custom_data: isize,
+    hook: *mut std::ffi::c_void,
+    template_name: *const u16,
+    reserved: *mut std::ffi::c_void,
+    reserved_word: u32,
+    flags_ex: u32,
+}
+
+#[cfg(windows)]
+#[link(name = "comdlg32")]
+unsafe extern "system" {
+    fn GetOpenFileNameW(file_name: *mut OpenFileNameW) -> i32;
+}
+
+#[cfg(windows)]
+fn open_ship_resource_dialog(resource_type: ShipResourceType) -> Option<std::path::PathBuf> {
+    use std::os::windows::ffi::OsStringExt;
+
+    let extension = resource_type.extension();
+    let filter = format!(
+        "{} resource (*.{extension})\0*.{extension}\0All files (*.*)\0*.*\0\0",
+        resource_type.name()
+    );
+    let filter: Vec<u16> = filter.encode_utf16().collect();
+    let title: Vec<u16> = format!("Select {} resource", resource_type.name())
+        .encode_utf16()
+        .chain(std::iter::once(0))
+        .collect();
+    let mut file = vec![0u16; 32_768];
+    let mut dialog = OpenFileNameW {
+        size: std::mem::size_of::<OpenFileNameW>() as u32,
+        owner: std::ptr::null_mut(),
+        instance: std::ptr::null_mut(),
+        filter: filter.as_ptr(),
+        custom_filter: std::ptr::null_mut(),
+        max_custom_filter: 0,
+        filter_index: 1,
+        file: file.as_mut_ptr(),
+        max_file: file.len() as u32,
+        file_title: std::ptr::null_mut(),
+        max_file_title: 0,
+        initial_dir: std::ptr::null(),
+        title: title.as_ptr(),
+        flags: 0x0000_1000 | 0x0000_0800 | 0x0000_0008,
+        file_offset: 0,
+        file_extension: 0,
+        default_extension: std::ptr::null(),
+        custom_data: 0,
+        hook: std::ptr::null_mut(),
+        template_name: std::ptr::null(),
+        reserved: std::ptr::null_mut(),
+        reserved_word: 0,
+        flags_ex: 0,
+    };
+    // SAFETY: all buffers and the OPENFILENAMEW structure remain alive and writable
+    // for the duration of the synchronous common-dialog call.
+    let accepted = unsafe { GetOpenFileNameW(&mut dialog) } != 0;
+    if !accepted {
+        return None;
+    }
+    let length = file
+        .iter()
+        .position(|unit| *unit == 0)
+        .unwrap_or(file.len());
+    Some(std::ffi::OsString::from_wide(&file[..length]).into())
+}
+
+#[cfg(not(windows))]
+fn open_ship_resource_dialog(_resource_type: ShipResourceType) -> Option<std::path::PathBuf> {
+    None
+}
+
+fn ship_upload_resource_layer(resource_type: ShipResourceType, selected: &ShipLayer) -> ShipLayer {
+    if resource_type.is_layered() {
+        selected.clone()
+    } else {
+        ShipLayer::default()
+    }
+}
+
+fn sync_ship_upload_ui(
+    mut commands: Commands,
+    upload: Res<ship_upload::SourceShipUpload>,
+    ui: Res<ShipUploadUiState>,
+    mut visibility: Query<
+        &mut Visibility,
+        (
+            With<ShipUploadModalContent>,
+            Without<ShipUploadResourcePreview>,
+            Without<ShipUploadSaveControl>,
+            Without<ShipUploadLayerTab>,
+            Without<ShipUploadLayerTabLabel>,
+        ),
+    >,
+    mut save_controls: Query<
+        &mut Visibility,
+        (
+            With<ShipUploadSaveControl>,
+            Without<ShipUploadResourcePreview>,
+            Without<ShipUploadLayerTab>,
+            Without<ShipUploadLayerTabLabel>,
+        ),
+    >,
+    mut previews: Query<
+        (&mut Sprite, &mut Visibility),
+        (
+            With<ShipUploadResourcePreview>,
+            Without<ShipUploadSaveControl>,
+            Without<ShipUploadLayerTab>,
+            Without<ShipUploadLayerTabLabel>,
+        ),
+    >,
+    mut layer_tabs: Query<
+        (
+            Entity,
+            &ShipUploadLayerTab,
+            &mut Transform,
+            &mut Sprite,
+            &mut Visibility,
+        ),
+        (
+            Without<ShipUploadSaveControl>,
+            Without<ShipUploadResourcePreview>,
+            Without<ShipUploadLayerTabLabel>,
+        ),
+    >,
+    mut layer_tab_labels: Query<
+        (
+            Entity,
+            &ShipUploadLayerTabLabel,
+            &mut Transform,
+            &mut Text2d,
+            &mut Visibility,
+        ),
+        (
+            Without<ShipUploadSaveControl>,
+            Without<ShipUploadResourcePreview>,
+            Without<ShipUploadLayerTab>,
+            Without<ShipUploadNameText>,
+            Without<ShipUploadDescriptionText>,
+            Without<ShipUploadLayerText>,
+            Without<ShipUploadStatusText>,
+        ),
+    >,
+    mut resource_buttons: Query<
+        (&ShipUploadButton, &mut Sprite),
+        (
+            With<ShipUploadModalContent>,
+            Without<ShipUploadResourcePreview>,
+            Without<ShipUploadLayerTab>,
+        ),
+    >,
+    mut images: ResMut<Assets<Image>>,
+    mut names: Query<&mut Text2d, (With<ShipUploadNameText>, Without<ShipUploadLayerTabLabel>)>,
+    mut descriptions: Query<
+        &mut Text2d,
+        (
+            With<ShipUploadDescriptionText>,
+            Without<ShipUploadNameText>,
+            Without<ShipUploadLayerText>,
+            Without<ShipUploadLayerTabLabel>,
+        ),
+    >,
+    mut layer_names: Query<
+        &mut Text2d,
+        (
+            With<ShipUploadLayerText>,
+            Without<ShipUploadNameText>,
+            Without<ShipUploadDescriptionText>,
+            Without<ShipUploadStatusText>,
+            Without<ShipUploadLayerTabLabel>,
+        ),
+    >,
+    mut statuses: Query<
+        &mut Text2d,
+        (
+            With<ShipUploadStatusText>,
+            Without<ShipUploadNameText>,
+            Without<ShipUploadDescriptionText>,
+            Without<ShipUploadLayerText>,
+            Without<ShipUploadLayerTabLabel>,
+        ),
+    >,
+) {
+    let has_required_fields =
+        !upload.ship_name_is_blank() && upload.thumbnail().ok().flatten().is_some();
+    let layers = upload.layers_in_order().to_vec();
+    let last_tab_start = layers.len().saturating_sub(1) / 4 * 4;
+    let tab_start = (ui.layer_tab_start / 4 * 4).min(last_tab_start);
+    let tab_end = (tab_start + 4).min(layers.len());
+    let mut existing_tabs = Vec::new();
+    for (entity, tab, mut transform, mut sprite, mut tab_visibility) in &mut layer_tabs {
+        let Some(index) = layers.iter().position(|layer| layer == &tab.0) else {
+            commands.entity(entity).despawn();
+            continue;
+        };
+        existing_tabs.push(tab.0.clone());
+        let on_page = (tab_start..tab_end).contains(&index);
+        if on_page {
+            let slot = index - tab_start;
+            transform.translation.x = -200.0 + slot as f32 * 82.0;
+        }
+        sprite.color = if tab.0 == ui.active_layer {
+            Color::srgb(0.38, 0.43, 0.62)
+        } else {
+            Color::srgb(0.24, 0.28, 0.43)
+        };
+        *tab_visibility = if upload.window_open() && on_page {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+    }
+    for (index, layer) in layers.iter().enumerate() {
+        if existing_tabs.contains(layer) {
+            continue;
+        }
+        let slot = index.saturating_sub(tab_start);
+        let visible = (tab_start..tab_end).contains(&index);
+        commands.spawn((
+            ShipUploadModalContent,
+            ShipUploadLayerTab(layer.clone()),
+            Sprite::from_color(
+                if layer == &ui.active_layer {
+                    Color::srgb(0.38, 0.43, 0.62)
+                } else {
+                    Color::srgb(0.24, 0.28, 0.43)
+                },
+                Vec2::new(78.0, 30.0),
+            ),
+            Transform::from_xyz(-200.0 + slot as f32 * 82.0, -145.0, 82.0),
+            RenderLayers::layer(1),
+            if upload.window_open() && visible {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            },
+        ));
+    }
+    let mut existing_labels = Vec::new();
+    for (entity, label, mut transform, mut text, mut label_visibility) in &mut layer_tab_labels {
+        let Some(index) = layers.iter().position(|layer| layer == &label.0) else {
+            commands.entity(entity).despawn();
+            continue;
+        };
+        existing_labels.push(label.0.clone());
+        let on_page = (tab_start..tab_end).contains(&index);
+        if on_page {
+            let slot = index - tab_start;
+            transform.translation.x = -200.0 + slot as f32 * 82.0;
+        }
+        text.0 = label.0.display_name().to_owned();
+        *label_visibility = if upload.window_open() && on_page {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+    }
+    for (index, layer) in layers.iter().enumerate() {
+        if existing_labels.contains(layer) {
+            continue;
+        }
+        let slot = index.saturating_sub(tab_start);
+        let visible = (tab_start..tab_end).contains(&index);
+        commands.spawn((
+            ShipUploadModalContent,
+            ShipUploadLayerTabLabel(layer.clone()),
+            Text2d::new(layer.display_name()),
+            TextFont {
+                font_size: FontSize::Px(14.0),
+                ..default()
+            },
+            TextColor(Color::WHITE),
+            Transform::from_xyz(-200.0 + slot as f32 * 82.0, -145.0, 83.0),
+            RenderLayers::layer(1),
+            if upload.window_open() && visible {
+                Visibility::Visible
+            } else {
+                Visibility::Hidden
+            },
+        ));
+    }
+    for mut value in &mut visibility {
+        *value = if upload.window_open() {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+    }
+    for mut value in &mut save_controls {
+        *value = if upload.window_open() && has_required_fields {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+    }
+    for (button, mut sprite) in &mut resource_buttons {
+        if let ShipUploadAction::SelectResource(resource_type) = button.0 {
+            sprite.color = if ui.preview_resource == Some(resource_type) {
+                Color::srgb(0.38, 0.43, 0.62)
+            } else {
+                Color::srgb(0.24, 0.28, 0.43)
+            };
+        }
+    }
+    for (mut sprite, mut preview_visibility) in &mut previews {
+        if !upload.window_open() {
+            *preview_visibility = Visibility::Hidden;
+            continue;
+        }
+        let resource_type = ui.preview_resource.unwrap_or(ShipResourceType::Base);
+        if resource_type == ShipResourceType::Materials {
+            *preview_visibility = Visibility::Hidden;
+            continue;
+        }
+        let layer = if matches!(
+            resource_type,
+            ShipResourceType::Base | ShipResourceType::Materials
+        ) {
+            ShipLayer::default()
+        } else {
+            ui.active_layer.clone()
+        };
+        let texture = ship_upload_resources::selected_texture_now(&upload, resource_type, &layer, &mut images);
+        match texture {
+            Ok(Some(handle)) => {
+                sprite.image = handle.clone();
+                if let Some(image) = images.get(&handle) {
+                    let width = image.texture_descriptor.size.width.max(1) as f32;
+                    let height = image.texture_descriptor.size.height.max(1) as f32;
+                    let fit = (410.0 / width).min(62.0 / height);
+                    sprite.custom_size = Some(Vec2::new(width * fit, height * fit));
+                }
+                *preview_visibility = Visibility::Visible;
+            }
+            Ok(None) => *preview_visibility = Visibility::Hidden,
+            Err(error) => {
+                bevy::log::warn!("Could not render ship upload preview: {error}");
+                *preview_visibility = Visibility::Hidden;
+            }
+        }
+    }
+    for mut value in &mut names {
+        let name = upload.ship_name();
+        value.0 = if name.is_empty() {
+            "Ship Name".into()
+        } else {
+            name
+        };
+    }
+    for mut value in &mut descriptions {
+        value.0 = upload.ship_description();
+    }
+    for mut value in &mut layer_names {
+        let name = upload.new_layer_name();
+        value.0 = if name.is_empty() {
+            "Layer Name".into()
+        } else {
+            name
+        };
+    }
+    let status = if !has_required_fields {
+        "Some required fields are missing"
+    } else {
+        ui.notice
+            .as_deref()
+            .or_else(|| upload.error_string())
+            .or_else(|| upload.success_string())
+            .unwrap_or("")
+    };
+    for mut value in &mut statuses {
+        value.0 = status.to_owned();
+    }
+}
+
+fn sync_source_daylight(mut simulation: ResMut<Simulation>, windows: Query<&Window>) {
+    let visible = windows
+        .single()
+        .is_ok_and(|window| window.physical_width() != 0 && window.physical_height() != 0);
+    if visible && simulation.cycle_enabled {
         simulation.day = time_sync::daylight(simulation.elapsed, simulation.cycle_length);
     }
 }
 fn select_ship_layer(
     mouse: Res<ButtonInput<MouseButton>>,
+    keys: Res<ButtonInput<KeyCode>>,
     windows: Query<&Window>,
     catalog: Res<ShipCatalog>,
+    preview: Option<Res<ship_upload_preview::ActivePreview>>,
+    retained:Option<Res<ship_runtime_reset::ActiveThumbnail>>,
+    capture: Option<Res<ui_input_capture::Capture>>,
     mut simulation: ResMut<Simulation>,
 ) {
-    if !mouse.just_pressed(MouseButton::Left)
-        || simulation.toolbox_collapsed
-        || !simulation.show_tools
-    {
+    if keys.just_pressed(KeyCode::Escape) || !simulation.show_tools {
+        simulation.layer_dropdown_open = false;
+        return;
+    }
+    if !mouse.just_pressed(MouseButton::Left) {
         return;
     }
     let Ok(window) = windows.single() else { return };
@@ -3289,91 +4653,216 @@ fn select_ship_layer(
         (cursor.x - window.width() * 0.5) * scale,
         (window.height() * 0.5 - cursor.y) * scale,
     );
-    if !point_in_tool_panel(point)
-        || !(-260.0..=-30.0).contains(&point.x)
-        || !(296.0..=324.0).contains(&point.y)
-    {
+    if capture.is_some_and(|capture|capture.editor_point(point)) {return;}
+    let world_point=point;
+    let point=point-simulation.tool_panel_offset;
+    let count = ship_upload_preview::layer_count(&catalog,&simulation,preview.as_deref(),retained.as_deref());
+    if let Some(layout)=simulation.source_tools {
+        if simulation.layer_dropdown_open {
+            if layout.popup(count).contains(world_point) {
+                if let Some(index)=(0..count).find(|index|source_tools_popup::option_contains(&layout,count,*index,world_point)) {
+                    simulation.selected_layer=index;simulation.layer_dropdown_open=false;return;
+                }
+                return; // Popup padding/scrollbar clicks keep the source popup open.
+            }
+            simulation.layer_dropdown_open=false;
+        }
+        if layout.combo.contains(world_point) {simulation.layer_dropdown_open=true;simulation.layer_popup_scroll=0.0;}
         return;
     }
-    let count = catalog
-        .1
-        .get(simulation.ship_index)
-        .map_or(1, |layers| layers.len().max(1));
-    simulation.selected_layer = (simulation.selected_layer + 1) % count;
+    if simulation.layer_dropdown_open {
+        if (-260.0..=-30.0).contains(&point.x)
+            && (297.0 - count as f32 * 24.0..=297.0).contains(&point.y)
+        {
+            let index = ((297.0 - point.y) / 24.0).floor().max(0.0) as usize;
+            if index < count {
+                simulation.selected_layer = index;
+                simulation.layer_dropdown_open = false;
+                return;
+            }
+        }
+        simulation.layer_dropdown_open = false;
+    }
+    if point_in_tool_panel(point)
+        && (-260.0..=-30.0).contains(&point.x)
+        && (296.0..=324.0).contains(&point.y)
+    {
+        simulation.layer_dropdown_open = true;
+    }
 }
 
 fn update_ship_layer_label(
     catalog: Res<ShipCatalog>,
     simulation: Res<Simulation>,
+    preview: Option<Res<ship_upload_preview::ActivePreview>>,
+    retained:Option<Res<ship_runtime_reset::ActiveThumbnail>>,
     mut labels: Query<&mut Text2d, With<ShipLayerLabel>>,
 ) {
-    let layer = catalog
-        .layer_name(simulation.ship_index, simulation.selected_layer)
-        .unwrap_or("Default");
+    let layer = ship_upload_preview::layer(&catalog,&simulation,preview.as_deref(),retained.as_deref(),simulation.selected_layer).map_or("Default",|layer|layer.display_name());
     for mut label in &mut labels {
         label.0 = layer.to_owned();
+    }
+}
+
+fn spawn_ship_layer_dropdown_option(commands: &mut Commands, index: usize) {
+    let y = 285.0 - index as f32 * 24.0;
+    commands.spawn((
+        ShipLayerDropdownOption(index),
+        source_tools_layout::Role::Option(index),
+        Sprite::from_color(Color::srgb(0.16, 0.18, 0.25), Vec2::new(230.0, 24.0)),
+        tool_panel_position(-145.0, y, 40.0),
+        RenderLayers::layer(1),
+        Visibility::Hidden,
+    ));
+    commands.spawn((
+        ShipLayerDropdownOptionLabel(index),
+        source_tools_layout::Role::OptionLabel(index),
+        Text2d::new("Default"),
+        TextFont {
+            font_size: FontSize::Px(15.0),
+            ..default()
+        },
+        TextColor(Color::WHITE),
+        tool_panel_position(-145.0, y, 41.0),
+        RenderLayers::layer(1),
+        Visibility::Hidden,
+    ));
+}
+
+fn sync_ship_layer_dropdown(
+    mut commands: Commands,
+    catalog: Res<ShipCatalog>,
+    simulation: Res<Simulation>,
+    preview: Option<Res<ship_upload_preview::ActivePreview>>,
+    retained:Option<Res<ship_runtime_reset::ActiveThumbnail>>,
+    mut background: Query<
+        (
+            &mut Sprite,
+            &mut Transform,
+            &mut Visibility,
+            Option<&mut ToolPanelPosition>,
+        ),
+        (
+            With<ShipLayerDropdownBackground>,
+            Without<ShipLayerDropdownOption>,
+            Without<ShipLayerDropdownOptionLabel>,
+        ),
+    >,
+    mut options: Query<
+        (&ShipLayerDropdownOption, &mut Sprite, &mut Visibility),
+        (
+            Without<ShipLayerDropdownOptionLabel>,
+            Without<ShipLayerDropdownBackground>,
+        ),
+    >,
+    mut labels: Query<
+        (&ShipLayerDropdownOptionLabel, &mut Text2d, &mut Visibility),
+        (
+            Without<ShipLayerDropdownOption>,
+            Without<ShipLayerDropdownBackground>,
+        ),
+    >,
+) {
+    let open = simulation.layer_dropdown_open && simulation.show_tools;
+    let count=ship_upload_preview::layer_count(&catalog,&simulation,preview.as_deref(),retained.as_deref());
+    for (mut sprite, mut transform, mut visibility, position) in &mut background {
+        let height = count as f32 * 24.0;
+        sprite.custom_size = Some(Vec2::new(230.0, height));
+        transform.translation.y = 297.0 - height * 0.5;
+        if let Some(mut position) = position {
+            position.0.y = transform.translation.y;
+        }
+        *visibility = if open {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+    }
+    let existing: std::collections::HashSet<usize> =
+        options.iter().map(|(option, _, _)| option.0).collect();
+    for index in 0..count {
+        if !existing.contains(&index) {
+            spawn_ship_layer_dropdown_option(&mut commands, index);
+        }
+    }
+    for (option, mut sprite, mut visibility) in &mut options {
+        let visible = open && option.0 < count;
+        sprite.color = if option.0 == simulation.selected_layer {
+            Color::srgb(0.30, 0.36, 0.54)
+        } else {
+            Color::srgb(0.16, 0.18, 0.25)
+        };
+        *visibility = if visible {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
+    }
+    for (option, mut label, mut visibility) in &mut labels {
+        let visible = open && option.0 < count;
+        label.0=ship_upload_preview::layer(&catalog,&simulation,preview.as_deref(),retained.as_deref(),option.0).map_or("Default",|layer|layer.display_name()).to_owned();
+        *visibility = if visible {
+            Visibility::Visible
+        } else {
+            Visibility::Hidden
+        };
     }
 }
 
 fn select_ship_from_panel(
     mouse: Res<ButtonInput<MouseButton>>,
     keys: Res<ButtonInput<KeyCode>>,
-    mut wheel: MessageReader<MouseWheel>,
+    mut keyboard_events: MessageReader<KeyboardInput>,
     windows: Query<&Window>,
-    catalog: Res<ShipCatalog>,
     mut simulation: ResMut<Simulation>,
     mut search_text: Query<&mut Text2d, With<ShipSearchText>>,
+    native_characters: Option<Res<Messages<window_characters::CharacterInput>>>,
+    mut native_cursor: Local<bevy::ecs::message::MessageCursor<window_characters::CharacterInput>>,
+    capture: Option<Res<ui_input_capture::Capture>>,
+    native_window:Option<NonSend<window_bevy::LiveWindow>>,
 ) {
+    // Drain text events even when the search box is not focused so typing elsewhere
+    // cannot be replayed into the next search session.
+    let keyboard_events: Vec<_> = keyboard_events.read().cloned().collect();
+    let committed_text=window_characters::read_codepoints(native_characters.as_deref(),&mut native_cursor);
+    if String::from_utf16_lossy(&simulation.ship_search_units)!=simulation.ship_search {simulation.ship_search_units=simulation.ship_search.encode_utf16().collect();}
     if simulation.toolbox_collapsed || simulation.active_tab != ToolboxTab::Ships {
         simulation.ship_search_active = false;
         return;
     }
     if simulation.ship_search_active {
-        let mut changed = false;
-        if keys.just_pressed(KeyCode::Backspace) {
-            changed = simulation.ship_search.pop().is_some();
+        for point in committed_text {
+            let units=window_characters::units(point);
+            if simulation.ship_search_units.len()+units.len()>255 {break;}
+            simulation.ship_search_units.extend(units);
+        }
+        if keyboard_events.iter().any(|event| {
+            event.key_code == KeyCode::Backspace && event.state == bevy::input::ButtonState::Pressed
+        }) {
+            simulation.ship_search_units.pop();
         }
         if keys.just_pressed(KeyCode::Escape) {
             simulation.ship_search_active = false;
         }
-        for (key, character) in [
-            (KeyCode::KeyA, 'a'),
-            (KeyCode::KeyB, 'b'),
-            (KeyCode::KeyC, 'c'),
-            (KeyCode::KeyD, 'd'),
-            (KeyCode::KeyE, 'e'),
-            (KeyCode::KeyF, 'f'),
-            (KeyCode::KeyG, 'g'),
-            (KeyCode::KeyH, 'h'),
-            (KeyCode::KeyI, 'i'),
-            (KeyCode::KeyJ, 'j'),
-            (KeyCode::KeyK, 'k'),
-            (KeyCode::KeyL, 'l'),
-            (KeyCode::KeyM, 'm'),
-            (KeyCode::KeyN, 'n'),
-            (KeyCode::KeyO, 'o'),
-            (KeyCode::KeyP, 'p'),
-            (KeyCode::KeyQ, 'q'),
-            (KeyCode::KeyR, 'r'),
-            (KeyCode::KeyS, 's'),
-            (KeyCode::KeyT, 't'),
-            (KeyCode::KeyU, 'u'),
-            (KeyCode::KeyV, 'v'),
-            (KeyCode::KeyW, 'w'),
-            (KeyCode::KeyX, 'x'),
-            (KeyCode::KeyY, 'y'),
-            (KeyCode::KeyZ, 'z'),
-            (KeyCode::Space, ' '),
-        ] {
-            if keys.just_pressed(key) {
-                simulation.ship_search.push(character);
-                changed = true;
+        if native_window.is_none() {for event in &keyboard_events {
+            if event.state != bevy::input::ButtonState::Pressed {
+                continue;
             }
-        }
-        if changed {
-            simulation.ship_scroll = 0;
-        }
+            let Some(text) = &event.text else {
+                continue;
+            };
+            for character in text.chars().filter(|character| !character.is_control()) {
+                // The source search buffer is 256 UTF-16 slots including its NUL terminator.
+                let used_units = simulation.ship_search_units.len();
+                if used_units + character.len_utf16() > 255 {
+                    break;
+                }
+                simulation.ship_search_units.extend(window_characters::units(character as u32));
+            }
+        }}
+
     }
+    simulation.ship_search=String::from_utf16_lossy(&simulation.ship_search_units);
     if let Ok(mut label) = search_text.single_mut() {
         label.0.clone_from(&simulation.ship_search);
     }
@@ -3385,181 +4874,200 @@ fn select_ship_from_panel(
     let x = (cursor.x - window.width() * 0.5) * ui_scale;
     let y = (window.height() * 0.5 - cursor.y) * ui_scale;
     if mouse.just_pressed(MouseButton::Left) {
+        if capture.is_some_and(|capture|capture.editor_point(Vec2::new(x,y))) {
+            simulation.ship_search_active=false;
+            return;
+        }
         simulation.ship_search_active =
             (-628.0..=-401.5).contains(&x) && (238.0..=268.0).contains(&y);
     }
-    let visible_choices = filtered_ship_indices(&catalog, &simulation.ship_search);
-    if (-628.0..=-302.0).contains(&x) && (-75.0..=146.0).contains(&y) {
-        for event in wheel.read() {
-            let movement = match event.unit {
-                MouseScrollUnit::Line => event.y.round() as isize,
-                MouseScrollUnit::Pixel => (event.y / 40.0).round() as isize,
-            };
-            let max_scroll = visible_choices.len().saturating_sub(4);
-            simulation.ship_scroll = if movement < 0 {
-                simulation
-                    .ship_scroll
-                    .saturating_add(movement.unsigned_abs())
-                    .min(max_scroll)
-            } else {
-                simulation.ship_scroll.saturating_sub(movement as usize)
-            };
-        }
-    }
-    if !mouse.just_pressed(MouseButton::Left) {
-        return;
-    }
-    if x < -628.0 || x > -302.0 || y > 146.0 || y < -75.0 {
-        return;
-    }
-    let row = ((122.0 - y + 28.0) / 57.0).floor().max(0.0) as usize;
-    if let Some(&index) = visible_choices.get(simulation.ship_scroll + row) {
-        simulation.ship_index = index;
-    }
 }
 
+fn source_ship_search_units(simulation:&Simulation)->std::borrow::Cow<'_,[u16]> {
+    if String::from_utf16_lossy(&simulation.ship_search_units)==simulation.ship_search {std::borrow::Cow::Borrowed(&simulation.ship_search_units)}
+    else {std::borrow::Cow::Owned(simulation.ship_search.encode_utf16().collect())}
+}
+fn source_filtered_ship_indices(catalog:&ShipCatalog,simulation:&Simulation)->Vec<usize> {
+    let search=source_ship_search_units(simulation);
+    catalog.0.iter().enumerate().filter(|(_,choice)|java_string::java_contains_ignore_case_units(&choice.name.encode_utf16().collect::<Vec<_>>(),&search)).map(|(index,_)|index).collect()
+}
 fn filtered_ship_indices(catalog: &ShipCatalog, search: &str) -> Vec<usize> {
-    let query = search.trim().to_lowercase();
     catalog
         .0
         .iter()
         .enumerate()
-        .filter(|(_, choice)| query.is_empty() || choice.name.to_lowercase().contains(&query))
+        .filter(|(_, choice)| crate::java_string::java_contains_ignore_case(&choice.name, search))
         .map(|(index, _)| index)
         .collect()
 }
 
-fn import_dropped_ship(
-    mut events: MessageReader<FileDragAndDrop>,
+fn refresh_ship_catalog(
+    time: Res<Time>,
     assets: Res<AssetServer>,
     mut catalog: ResMut<ShipCatalog>,
     mut simulation: ResMut<Simulation>,
     mut commands: Commands,
+    mut ship_cards: Query<Entity, Or<(With<ShipCard>, With<ShipThumbnail>, With<ShipNameLabel>)>>,
+    mut timer: Local<Option<Timer>>,
+    mut pending_scan: Local<Option<ShipCatalog>>,
+    native:Option<NonSend<live_ship_catalog::LiveCatalog>>,
+    retained:Option<Res<ship_runtime_reset::ActiveThumbnail>>,
+    mut published:Local<Option<u64>>,
 ) {
-    for event in events.read() {
-        let FileDragAndDrop::DroppedFile { path_buf, .. } = event else {
-            continue;
-        };
-        if !is_png(path_buf) {
-            bevy::log::warn!(
-                "Only PNG ship images can be imported: {}",
-                path_buf.display()
-            );
-            continue;
-        }
-        let (width, height) = match image::image_dimensions(path_buf) {
-            Ok(dimensions) => dimensions,
-            Err(error) => {
-                bevy::log::warn!(
-                    "Could not read dropped ship image {}: {error}",
-                    path_buf.display()
-                );
-                continue;
-            }
-        };
-        if u64::from(width) * u64::from(height) > 16_777_216 {
-            bevy::log::warn!(
-                "Dropped ship image is too large ({}x{}): {}",
-                width,
-                height,
-                path_buf.display()
-            );
-            continue;
-        }
-        if let Err(error) = image::open(path_buf) {
-            bevy::log::warn!(
-                "Could not decode dropped ship image {}: {error}",
-                path_buf.display()
-            );
-            continue;
-        }
+    if let Some(native)=native {
+        if *published==Some(native.revision) {return;}
+        *published=Some(native.revision);
+        let next=native.ui_catalog();
+        if next==*catalog {return;}
+        simulation.ship_index=retained.as_ref().and_then(|retained|retained.0.as_ref()).and_then(|active|native.active_index(&next,active)).unwrap_or(usize::MAX);
+        simulation.catalog_revision=simulation.catalog_revision.wrapping_add(1);
+        *catalog=next;
+        for entity in &mut ship_cards {commands.entity(entity).despawn();}
+        for (index,choice) in catalog.0.iter().enumerate() {spawn_ship_catalog_card(&mut commands,&assets,index,choice,index<4);}
+        return;
+    }
+    let timer = timer.get_or_insert_with(|| Timer::from_seconds(1.0, TimerMode::Repeating));
+    timer.tick(time.delta());
+    if !timer.just_finished() {
+        return;
+    }
 
-        let name = path_buf
-            .file_stem()
-            .and_then(|stem| stem.to_str())
-            .unwrap_or("Imported ship")
-            .trim()
-            .to_owned();
-        let safe_stem: String = name
-            .chars()
-            .map(|character| {
-                if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') {
-                    character
-                } else {
-                    '_'
-                }
+    // Toolbox.reloadFiles creates thumbnails from the previous shipFiles map,
+    // then publishes the newly scanned map. Keep that one-scan delay here.
+    let scanned = ShipCatalog::discover();
+    let Some(mut next) = pending_scan.replace(scanned) else {
+        return;
+    };
+
+    let selected = catalog.0.get(simulation.ship_index).cloned().map(|choice| {
+        let layers = catalog
+            .1
+            .get(simulation.ship_index)
+            .cloned()
+            .unwrap_or_default();
+        (choice, layers)
+    });
+
+    if let Some((choice, layers)) = &selected {
+        if !next.0.iter().any(|candidate| {
+            candidate.asset == choice.asset && candidate.physics_asset == choice.physics_asset
+        }) {
+            // Keep the currently loaded vessel selectable if its file is removed while open.
+            next.0.push(choice.clone());
+            next.1.push(layers.clone());
+        }
+    }
+
+    if next == *catalog {
+        return;
+    }
+
+    if let Some((choice, _)) = &selected {
+        simulation.ship_index = next
+            .0
+            .iter()
+            .position(|candidate| {
+                candidate.asset == choice.asset && candidate.physics_asset == choice.physics_asset
             })
-            .collect();
-        let safe_stem = safe_stem.trim_matches('_');
-        let safe_stem = if safe_stem.is_empty() {
-            "imported_ship"
-        } else {
-            safe_stem
-        };
-        let directory = std::path::Path::new("assets/user_ships");
-        if let Err(error) = std::fs::create_dir_all(directory) {
-            bevy::log::error!(
-                "Could not create ship import directory {}: {error}",
-                directory.display()
-            );
-            continue;
-        }
-        let mut destination = directory.join(format!("{safe_stem}.png"));
-        let mut suffix = 2;
-        while destination.exists() {
-            destination = directory.join(format!("{safe_stem}_{suffix}.png"));
-            suffix += 1;
-        }
-        if let Err(error) = std::fs::copy(path_buf, &destination) {
-            bevy::log::error!(
-                "Could not copy imported ship to {}: {error}",
-                destination.display()
-            );
-            continue;
-        }
+            .unwrap_or(0);
+    } else {
+        simulation.ship_index = 0;
+    }
+    simulation.selected_layer = 0;
+    simulation.catalog_revision = simulation.catalog_revision.wrapping_add(1);
+    *catalog = next;
 
-        let mut choices = Vec::with_capacity(1);
-        push_ship_choice(&mut choices, &destination, &destination, name, false);
-        let choice = choices.pop().expect("one imported ship choice was created");
-        let index = catalog.add_imported(choice.clone());
-        spawn_ship_catalog_card(&mut commands, &assets, index, &choice, false);
-        simulation.ship_index = index;
+    for entity in &mut ship_cards {
+        commands.entity(entity).despawn();
+    }
+    for (index, choice) in catalog.0.iter().enumerate() {
+        spawn_ship_catalog_card(&mut commands, &assets, index, choice, index < 4);
     }
 }
 
 fn load_selected_ship(
     catalog: Res<ShipCatalog>,
     mut simulation: ResMut<Simulation>,
+    mut drag: ResMut<tools::move_tool::MoveDragState>,
     mut structure: ResMut<ShipStructure>,
     mut snapshot: ResMut<GpuShipPhysicsSnapshot>,
     mut gpu_physics: ResMut<GpuShipPhysicsAssets>,
     mut shader_buffers: ResMut<Assets<ShaderBuffer>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut ship_meshes: Query<(&ShipMesh, &mut MeshSyncState)>,
-    mut last_ship: Local<Option<usize>>,
+    mut visuals: ship_visual_replacement::VisualReplacement,
+    mut preview: ResMut<ship_upload_preview::ActivePreview>,
+    mut last_ship: Local<Option<(usize, u64)>>,
+    mut retained: Option<ResMut<ship_runtime_reset::ActiveThumbnail>>,
+    resets: Option<Res<Messages<window_characters::ResetShip>>>,
+    mut reset_cursor: Local<bevy::ecs::message::MessageCursor<window_characters::ResetShip>>,
+    live_catalog:Option<NonSend<live_ship_catalog::LiveCatalog>>,
+    mut selection:Option<ResMut<live_ship_catalog::PendingSelection>>,
 ) {
-    if last_ship.is_none() {
-        *last_ship = Some(simulation.ship_index);
+    let reset_count = resets
+        .as_deref()
+        .map_or(0, |messages| reset_cursor.read(messages).count());
+    let selected=selection.as_mut().and_then(|selection|selection.0.take());
+    // Native browser indices are presentation state. Only explicit selection,
+    // editor Test Ship, or native reset may replace the active source ship.
+    if live_catalog.is_some() && selected.is_none() && reset_count==0 && preview.pending.is_none() {
+        *last_ship=Some((simulation.ship_index,preview.revision));return;
+    }
+    let state = (simulation.ship_index, preview.revision);
+    if selected.is_none() && reset_count == 0 && last_ship.is_none() && preview.pending.is_none() {
+        *last_ship = Some(state);
         return;
     }
-    if *last_ship == Some(simulation.ship_index) {
+    if selected.is_none() && reset_count == 0 && *last_ship == Some(state) {
         return;
     }
-    let Some(choice) = catalog.0.get(simulation.ship_index) else {
+    // A catalog rescan can move indices while the editor's unsaved ship stays active.
+    if selected.is_none() && reset_count == 0 && preview.thumbnail.is_some() && preview.pending.is_none() {
+        *last_ship = Some(state);
         return;
-    };
-    *last_ship = Some(simulation.ship_index);
-    simulation.selected_layer = 0;
-    *structure = ShipStructure::load_for_choice(choice);
-    reset_gpu_ship_physics(&structure, &mut gpu_physics, &mut shader_buffers);
-    *snapshot = GpuShipPhysicsSnapshot::default();
-    let replacement = build_deformable_ship_mesh(&structure);
-    for (ship_mesh, mut sync_state) in &mut ship_meshes {
-        if let Some(mut mesh) = meshes.get_mut(&ship_mesh.0) {
-            *mesh = replacement.clone();
-        }
-        sync_state.0.clone_from(&structure.breached);
-        sync_state.1.clear();
+    }
+    *last_ship = Some(state);
+    let activate=selected.is_some() || preview.pending.is_some() || reset_count==0;
+    for step in 0..reset_count+usize::from(activate) {
+        let next = if step<reset_count {
+            let thumbnail=retained.as_ref().and_then(|retained|retained.0.as_ref()).or(preview.thumbnail.as_ref());
+            if let Some(thumbnail)=thumbnail {
+                match ShipStructure::load_for_thumbnail(thumbnail) {
+                    Ok(next)=>Some(next),
+                    Err(error)=>{bevy::log::error!("Could not reset active thumbnail: {error}");None},
+                }
+            } else {catalog.0.get(simulation.ship_index).map(ShipStructure::load_for_choice)}
+        } else if let Some(thumbnail)=selected.as_ref() {
+            match ShipStructure::load_for_thumbnail(thumbnail) {
+                Ok(next)=>{if let Some(retained)=retained.as_mut(){retained.0=Some(thumbnail.clone());}Some(next)},
+                Err(error)=>{bevy::log::error!("Could not select source browser ship: {error}");None},
+            }
+        } else if let Some(next)=preview.pending.take() {
+            if let Some(retained)=retained.as_mut() {retained.0=preview.thumbnail.clone();}
+            Some(next)
+        } else {
+            catalog.0.get(simulation.ship_index).map(|choice| {
+                let (next,thumbnail)=if let Some(thumbnail)=live_catalog.as_ref().and_then(|catalog|catalog.thumbnail(choice)) {
+                    match ShipStructure::load_for_thumbnail(&thumbnail) {
+                        Ok(next)=>(next,ship_runtime_reset::ActiveThumbnail(Some(thumbnail))),
+                        Err(error)=>{bevy::log::error!("Could not construct cached catalog ship: {error}");ship_runtime_reset::choice(choice)},
+                    }
+                } else {ship_runtime_reset::choice(choice)};
+                if let Some(retained)=retained.as_mut() {**retained=thumbnail;}
+                next
+            })
+        };
+        let Some(next) = next else {
+            return;
+        };
+        // Every new Ship starts with currentLayer = 0, including Shift+R.
+        simulation.selected_layer = 0;
+        *structure = next;
+        // Source selection constructs a new Ship, whose moving/base/offset fields
+        // start at false/zero. A preceding ship's release delta must not carry over.
+        *drag = tools::move_tool::MoveDragState::default();
+        replace_gpu_ship_physics(&structure, &mut gpu_physics, &mut shader_buffers);
+        *snapshot = GpuShipPhysicsSnapshot::default();
+        visuals.construct(&structure, &gpu_physics, &simulation, &mut meshes);
     }
 }
 
@@ -3567,11 +5075,12 @@ fn select_toolbox_tab_and_settings(
     mouse: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window>,
     tabs: Query<(&TabButton, &Transform, &Sprite)>,
-    buttons: Query<(&SettingButton, &Transform, &Visibility)>,
+    buttons: Query<(&SettingButton, &Transform, &Visibility, &Sprite)>,
     rows: Query<(&SettingRow, &Transform, &Visibility)>,
     mut simulation: ResMut<Simulation>,
     mut dragging: Local<Option<(usize, Vec2)>>,
     mut music: ResMut<music_player::MusicPlayer>,
+    capture: Option<Res<ui_input_capture::Capture>>,
 ) {
     let Ok(window) = windows.single() else { return };
     let Some(cursor) = window.cursor_position() else {
@@ -3588,11 +5097,12 @@ fn select_toolbox_tab_and_settings(
     }
     if !mouse.just_pressed(MouseButton::Left) && mouse.pressed(MouseButton::Left) {
         if let Some((index, previous)) = *dragging {
+            let picker_point = toolbox_viewport::unscroll_point(&simulation, point);
             match index {
-                DRAG_SEA_COLOR => apply_sea_color_point(point, &mut simulation),
-                DRAG_SEA_HUE => apply_sea_hue_point(point, &mut simulation),
-                DRAG_SEA_ALPHA => simulation.sea_alpha = toolbox::alpha_at(point.y),
-                _ => simulation.adjust(index, (point.x - previous.x) * setting_drag_speed(index)),
+                DRAG_SEA_COLOR => apply_sea_color_point(picker_point, &mut simulation),
+                DRAG_SEA_HUE => apply_sea_hue_point(picker_point, &mut simulation),
+                DRAG_SEA_ALPHA => simulation.sea_alpha = toolbox::alpha_at(picker_point.y),
+                _ => {let delta=point.x-previous.x;let delta=if index==19 {simulation.source_tools.map_or(delta,|layout|delta*layout.viewport.source_size.y/720.0)}else {delta};simulation.adjust(index,delta*setting_drag_speed(index));},
             }
             *dragging = Some((index, point));
         }
@@ -3601,15 +5111,22 @@ fn select_toolbox_tab_and_settings(
     if !mouse.just_pressed(MouseButton::Left) {
         return;
     }
+    // A new press belongs to the front editor; an existing widget drag keeps ownership.
+    if capture.is_some_and(|capture|capture.editor_point(point)) {return;}
     if point_in_toolbox_header(point) {
         simulation.toolbox_collapsed = !simulation.toolbox_collapsed;
         return;
     }
-    if mouse.just_pressed(MouseButton::Left)
-        && (-260.0..=-30.0).contains(&point.x)
-        && (174.0..=202.0).contains(&point.y)
+    let tool_point = point - simulation.tool_panel_offset;
+    if simulation.show_tools
+        && mouse.just_pressed(MouseButton::Left)
+        && simulation.source_tools.map_or((-260.0..=-30.0).contains(&tool_point.x)&&(174.0..=202.0).contains(&tool_point.y),|layout|layout.slider.contains(point))
     {
         *dragging = Some((19, point));
+        return;
+    }
+    // The independent Tools window captures its pointer region before Toolbox widgets.
+    if simulation.show_tools && simulation.source_tools.map_or(point_in_tool_panel(tool_point),|layout|layout.captures(point,simulation.layer_dropdown_open,layout.layer_count)) {
         return;
     }
     if simulation.toolbox_collapsed {
@@ -3618,6 +5135,15 @@ fn select_toolbox_tab_and_settings(
     if point.x < -640.0 || point.x > -290.0 {
         return;
     }
+    if let Some((tab, _, _)) = tabs.iter().find(|(_, transform, sprite)| {
+        (point.x - transform.translation.x).abs()
+            < sprite.custom_size.unwrap_or(Vec2::splat(0.0)).x * 0.5
+            && (point.y - transform.translation.y).abs() < 14.0
+    }) {
+        simulation.active_tab = tab.0;
+        return;
+    }
+    let Some(point) = toolbox_viewport::content_point(&simulation, point) else { return; };
     if simulation.active_tab == ToolboxTab::Graphics {
         if (-419.0..=-405.0).contains(&point.x) && (-310.0..=50.0).contains(&point.y) {
             *dragging = Some((DRAG_SEA_ALPHA, point));
@@ -3639,14 +5165,6 @@ fn select_toolbox_tab_and_settings(
             return;
         }
     }
-    if let Some((tab, _, _)) = tabs.iter().find(|(_, transform, sprite)| {
-        (point.x - transform.translation.x).abs()
-            < sprite.custom_size.unwrap_or(Vec2::splat(0.0)).x * 0.5
-            && (point.y - transform.translation.y).abs() < 14.0
-    }) {
-        simulation.active_tab = tab.0;
-        return;
-    }
     if let Some((row, _, _)) = rows.iter().find(|(_, transform, visibility)| {
         **visibility != Visibility::Hidden
             && (point.x - transform.translation.x).abs() < 112.5
@@ -3655,10 +5173,11 @@ fn select_toolbox_tab_and_settings(
         *dragging = Some((row.0, point));
         return;
     }
-    let Some((button, _, _)) = buttons.iter().find(|(_, transform, visibility)| {
+    let Some((button, _, _, _)) = buttons.iter().find(|(_, transform, visibility, sprite)| {
+        let size = sprite.custom_size.unwrap_or(Vec2::splat(0.0)) * 0.5;
         **visibility != Visibility::Hidden
-            && (point.x - transform.translation.x).abs() < 17.0
-            && (point.y - transform.translation.y).abs() < 15.0
+            && (point.x - transform.translation.x).abs() < size.x
+            && (point.y - transform.translation.y).abs() < size.y
     }) else {
         return;
     };
@@ -3677,188 +5196,75 @@ fn select_toolbox_tab_and_settings(
             music.next_track();
             simulation.music_playing = !music.paused;
         }
+        SettingAction::GeneratePalette => {
+            let reader = crate::file_reader::FileReader::game();
+            let output = reader.ss_home.join("palette.png");
+            match crate::palette_gen::gen_palette(
+                std::path::Path::new("config/materials.json"),
+                &output,
+            ) {
+                Ok(()) => {
+                    #[cfg(windows)]
+                    if let Err(error) = std::process::Command::new("explorer")
+                        .arg(&reader.ss_home)
+                        .spawn()
+                    {
+                        bevy::log::warn!("Could not open palette folder: {error}");
+                    }
+                }
+                Err(error) => bevy::log::error!("Could not generate palette: {error}"),
+            }
+        }
     }
 }
 
 fn setting_drag_speed(index: usize) -> f32 {
     match index {
-        0 => 0.25,
-        1 | 3 | 4 | 6 | 7 | 9 | 10 | 11 | 12 | 15 => 0.01,
-        2 => 2.0,
-        5 => 0.5,
-        8 => 0.05,
-        13 => 0.001,
-        14 => 0.5,
-        16 => 1.0,
-        17 => 0.1,
-        18 => 0.005,
+        0 | 1 | 3 | 4 | 5 | 6 | 7 | 9 | 12 => 0.05,
+        2 => 0.5,
+        8 => 0.1,
+        10 | 11 => 0.005,
+        13 => 0.005,
+        14 => 0.1,
+        15 => 0.01,
+        16 | 17 => 0.2,
+        18 => 0.01,
+        19 => 0.1,
         21..=24 => 1.0 / 255.0,
         _ => 0.01,
     }
 }
 
 fn apply_sea_color_point(point: Vec2, simulation: &mut Simulation) {
-    let saturation = ((point.x + 627.0) / 188.0).clamp(0.0, 1.0);
-    let value = ((point.y + 310.0) / 360.0).clamp(0.0, 1.0);
-    simulation.sea_color = hsv_to_rgb(simulation.sea_hue, saturation, value);
+    let sv = gui_color_picker_input::pointer_sv(point);
+    let hsv = simulation.sea_color_memory.read(simulation.sea_color);
+    simulation.sea_color = simulation.sea_color_memory.edit(Vec3::new(hsv.x, sv.x, sv.y));
 }
 
 fn apply_sea_hue_point(point: Vec2, simulation: &mut Simulation) {
-    simulation.sea_hue = (360.0 * (1.0 - (point.y + 310.0) / 360.0)).clamp(0.0, 360.0);
-    let (_, saturation, value) = rgb_to_hsv(simulation.sea_color);
-    simulation.sea_color = hsv_to_rgb(simulation.sea_hue, saturation, value);
-}
-
-fn rgb_to_hue(rgb: Vec3) -> f32 {
-    rgb_to_hsv(rgb).0
+    let mut hsv = simulation.sea_color_memory.read(simulation.sea_color);
+    hsv.x = gui_color_picker_input::pointer_hue(point.y);
+    simulation.sea_color = simulation.sea_color_memory.edit(hsv);
 }
 
 fn rgb_to_hsv(rgb: Vec3) -> (f32, f32, f32) {
-    let max = rgb.max_element();
-    let min = rgb.min_element();
-    let delta = max - min;
-    if delta <= f32::EPSILON {
-        return (0.0, 0.0, max);
-    }
-    let hue = if max == rgb.x {
-        60.0 * ((rgb.y - rgb.z) / delta).rem_euclid(6.0)
-    } else if max == rgb.y {
-        60.0 * ((rgb.z - rgb.x) / delta + 2.0)
-    } else {
-        60.0 * ((rgb.x - rgb.y) / delta + 4.0)
-    };
-    (hue.rem_euclid(360.0), delta / max.max(f32::EPSILON), max)
+    let hsv = gui_color_picker_input::rgb_to_hsv(rgb);
+    (hsv.x * 360.0, hsv.y, hsv.z)
 }
 
 fn hsv_to_rgb(hue: f32, saturation: f32, value: f32) -> Vec3 {
-    let chroma = value * saturation;
-    let sector = (hue.rem_euclid(360.0) / 60.0).rem_euclid(6.0);
-    let secondary = chroma * (1.0 - (sector.rem_euclid(2.0) - 1.0).abs());
-    let (red, green, blue) = match sector as u32 {
-        0 => (chroma, secondary, 0.0),
-        1 => (secondary, chroma, 0.0),
-        2 => (0.0, chroma, secondary),
-        3 => (0.0, secondary, chroma),
-        4 => (secondary, 0.0, chroma),
-        _ => (chroma, 0.0, secondary),
-    };
-    let offset = value - chroma;
-    Vec3::new(red + offset, green + offset, blue + offset)
+    gui_color_picker_input::hsv_to_rgb(Vec3::new(hue / 360.0, saturation, value))
 }
-
 fn color_picker_mesh(hue: f32) -> Mesh {
-    const STEPS: usize = 32;
-    let mut positions = Vec::with_capacity((STEPS + 1) * (STEPS + 1));
-    let mut colors = Vec::with_capacity((STEPS + 1) * (STEPS + 1));
-    let mut indices = Vec::with_capacity(STEPS * STEPS * 6);
-    for row in 0..=STEPS {
-        let value = 1.0 - row as f32 / STEPS as f32;
-        for column in 0..=STEPS {
-            let saturation = column as f32 / STEPS as f32;
-            let color = hsv_to_rgb(hue, saturation, value);
-            positions.push([
-                -94.0 + column as f32 * (188.0 / STEPS as f32),
-                180.0 - row as f32 * (360.0 / STEPS as f32),
-                0.0,
-            ]);
-            colors.push([color.x, color.y, color.z, 1.0]);
-        }
-    }
-    for row in 0..STEPS {
-        for column in 0..STEPS {
-            let top_left = (row * (STEPS + 1) + column) as u32;
-            let top_right = top_left + 1;
-            let bottom_left = top_left + (STEPS + 1) as u32;
-            let bottom_right = bottom_left + 1;
-            indices.extend_from_slice(&[
-                top_left,
-                bottom_left,
-                top_right,
-                top_right,
-                bottom_left,
-                bottom_right,
-            ]);
-        }
-    }
-    let mut mesh = Mesh::new(
-        PrimitiveTopology::TriangleList,
-        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
-    );
-    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
-    mesh.insert_indices(Indices::U32(indices));
-    mesh
+    gui_color_picker::saturation_value(Vec2::new(188.0, 360.0), gui_color_picker_input::hsv_to_rgb(Vec3::new(hue, 1.0, 1.0)))
 }
 
 fn hue_bar_mesh() -> Mesh {
-    const STEPS: usize = 24;
-    let mut positions = Vec::with_capacity(STEPS * 4);
-    let mut colors = Vec::with_capacity(STEPS * 4);
-    let mut indices = Vec::with_capacity(STEPS * 6);
-    for row in 0..STEPS {
-        let top = 180.0 - row as f32 * 15.0;
-        let bottom = top - 15.0;
-        let color = hsv_to_rgb(360.0 * (1.0 - (row as f32 + 0.5) / STEPS as f32), 1.0, 1.0);
-        let base = (row * 4) as u32;
-        positions.extend_from_slice(&[
-            [-9.0, top, 0.0],
-            [-9.0, bottom, 0.0],
-            [9.0, top, 0.0],
-            [9.0, bottom, 0.0],
-        ]);
-        colors.extend_from_slice(&[[color.x, color.y, color.z, 1.0]; 4]);
-        indices.extend_from_slice(&[base, base + 1, base + 2, base + 2, base + 1, base + 3]);
-    }
-    let mut mesh = Mesh::new(
-        PrimitiveTopology::TriangleList,
-        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
-    );
-    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
-    mesh.insert_indices(Indices::U32(indices));
-    mesh
+    gui_color_picker::hue(Vec2::new(18.0, 360.0))
 }
 
 fn alpha_bar_mesh(color: Vec3) -> Mesh {
-    const COLUMNS: usize = 2;
-    const ROWS: usize = 16;
-    let mut positions = Vec::with_capacity(COLUMNS * ROWS * 4);
-    let mut colors = Vec::with_capacity(COLUMNS * ROWS * 4);
-    let mut indices = Vec::with_capacity(COLUMNS * ROWS * 6);
-    for row in 0..ROWS {
-        for column in 0..COLUMNS {
-            let left = -7.0 + column as f32 * 7.0;
-            let right = left + 7.0;
-            let top = 180.0 - row as f32 * 22.5;
-            let bottom = top - 22.5;
-            let shade = if (row + column) % 2 == 0 { 0.72 } else { 0.46 };
-            let base = ((row * COLUMNS + column) * 4) as u32;
-            positions.extend_from_slice(&[
-                [left, top, 0.0],
-                [left, bottom, 0.0],
-                [right, top, 0.0],
-                [right, bottom, 0.0],
-            ]);
-            for alpha in [
-                1.0 - row as f32 / ROWS as f32,
-                1.0 - (row + 1) as f32 / ROWS as f32,
-                1.0 - row as f32 / ROWS as f32,
-                1.0 - (row + 1) as f32 / ROWS as f32,
-            ] {
-                let rgb = Vec3::splat(shade).lerp(color, alpha);
-                colors.push([rgb.x, rgb.y, rgb.z, 1.0]);
-            }
-            indices.extend_from_slice(&[base, base + 1, base + 2, base + 2, base + 1, base + 3]);
-        }
-    }
-    let mut mesh = Mesh::new(
-        PrimitiveTopology::TriangleList,
-        RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
-    );
-    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
-    mesh.insert_indices(Indices::U32(indices));
-    mesh
+    gui_color_picker::alpha(Vec2::new(14.0, 360.0), color)
 }
 
 fn point_in_toolbox_header(point: Vec2) -> bool {
@@ -3946,11 +5352,12 @@ fn sync_settings_ui(
         }
         *last_alpha_color = Some(color_key);
     }
-    let hue_key = simulation.sea_hue.to_bits();
+    let picker_hue = simulation.sea_color_memory.read(simulation.sea_color).x;
+    let hue_key = picker_hue.to_bits();
     if *last_picker_hue != Some(hue_key) {
         for picker in &color_picker {
             if let Some(mut mesh) = meshes.get_mut(&picker.0) {
-                *mesh = color_picker_mesh(simulation.sea_hue);
+                *mesh = color_picker_mesh(picker_hue);
             }
         }
         *last_picker_hue = Some(hue_key);
@@ -3960,9 +5367,10 @@ fn sync_settings_ui(
             transform.translation.y = toolbox::alpha_marker_y(simulation.sea_alpha);
             continue;
         }
-        let (_, saturation, value) = rgb_to_hsv(simulation.sea_color);
-        transform.translation.x = -627.0 + saturation * 188.0;
-        transform.translation.y = -310.0 + value * 360.0;
+        let hsv = simulation.sea_color_memory.read(simulation.sea_color);
+        let marker = gui_color_picker_input::sv_marker(hsv.y, hsv.z);
+        transform.translation.x = marker.x;
+        transform.translation.y = marker.y;
     }
     for (readout, mut label) in &mut color_readouts {
         let channels = [
@@ -3990,11 +5398,7 @@ fn sync_toolbox_visibility(
         *item_visibility = visibility;
     }
     for mut label in &mut title {
-        label.0 = if simulation.toolbox_collapsed {
-            "▶  Toolbox".to_owned()
-        } else {
-            "▼  Toolbox".to_owned()
-        };
+        if label.0 != "Toolbox" {label.0="Toolbox".to_owned();}
     }
 }
 
@@ -4002,6 +5406,7 @@ fn select_tool_from_panel(
     mouse: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window>,
     mut simulation: ResMut<Simulation>,
+    capture: Option<Res<ui_input_capture::Capture>>,
 ) {
     if !simulation.show_tools || !mouse.just_pressed(MouseButton::Left) {
         return;
@@ -4011,19 +5416,27 @@ fn select_tool_from_panel(
         return;
     };
     let ui_scale = 720.0 / window.height().max(1.0);
-    let x = (cursor.x - window.width() * 0.5) * ui_scale;
-    let y = (window.height() * 0.5 - cursor.y) * ui_scale;
+    let point=Vec2::new((cursor.x-window.width()*0.5)*ui_scale,(window.height()*0.5-cursor.y)*ui_scale);
+    if capture.is_some_and(|capture|capture.editor_point(point)) {return;}
+    if let Some(layout)=simulation.source_tools {
+        if let Some(index)=layout.buttons.iter().position(|rect|rect.contains(point)) {
+            simulation.tool.toggle([Tool::Break,Tool::Flood,Tool::Dry,Tool::Move][index]);
+        }
+        return;
+    }
+    let point=point-simulation.tool_panel_offset;
+    let x=point.x;let y=point.y;
     if !(222.0..=278.0).contains(&y) {
         return;
     }
     if (-248.0..=-192.0).contains(&x) {
-        simulation.tool = Tool::Break;
+        simulation.tool.toggle(Tool::Break);
     } else if (-170.0..=-114.0).contains(&x) {
-        simulation.tool = Tool::Dry;
+        simulation.tool.toggle(Tool::Flood);
     } else if (-92.0..=-36.0).contains(&x) {
-        simulation.tool = Tool::Flood;
+        simulation.tool.toggle(Tool::Dry);
     } else if (-14.0..=42.0).contains(&x) {
-        simulation.tool = Tool::Move;
+        simulation.tool.toggle(Tool::Move);
     }
 }
 
@@ -4087,20 +5500,16 @@ fn apply_hull_leak_inflow(
 
 fn simulate_ship_physics(
     time: Res<Time>,
-    keys: Res<ButtonInput<KeyCode>>,
     mut simulation: ResMut<Simulation>,
     mut structure: ResMut<ShipStructure>,
 ) {
-    if simulation.paused {
-        return;
-    }
     let delta = time.delta_secs().min(1.0 / 30.0);
     if delta <= 0.0 {
         return;
     }
     // SS2 runs its force pass once per configured physics step and schedules
     // the more expensive water pass only at water-step intervals.
-    let substeps = simulation.physics_iterations.round().clamp(1.0, 200.0) as usize;
+    let substeps = simulation.physics_iterations.round().clamp(1.0, 1000.0) as usize;
     let break_pass_scale = source_spring_break_scale(substeps, delta);
     let flow_scale =
         (simulation.water_flow / 60.0).clamp(0.0, 3.0) * simulation.water_influx.max(0.0);
@@ -4138,7 +5547,10 @@ fn simulate_ship_physics(
     let cell_height = *half_height * 2.0 / *height as f32;
     let cell_width = 2.0 * SHIP_HALF_WIDTH / *width as f32;
     let maximum_local_deformation = cell_width.max(cell_height) * 4.0;
-    let water_steps = simulation.water_steps.round().clamp(1.0, 32.0) as usize;
+    let water_steps = simulation.water_steps.round().clamp(
+        1.0,
+        simulation.physics_iterations.round().clamp(1.0, 1000.0),
+    ) as usize;
     for _ in 0..water_steps {
         let ShipStructure {
             water,
@@ -4159,24 +5571,6 @@ fn simulate_ship_physics(
             simulation.water_funk,
         );
     }
-    if !simulation.ship_search_active && keys.pressed(KeyCode::KeyF) {
-        if let Some(i) = structure
-            .interior
-            .iter()
-            .position(|&is_interior| is_interior)
-        {
-            structure.water[i] = (structure.water[i] + delta * 0.5).min(1.0);
-        }
-    }
-    if (!simulation.ship_search_active
-        && (keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::KeyP)))
-        || simulation.pump_enabled
-    {
-        for amount in &mut structure.water {
-            *amount = (*amount - 0.6 * delta).max(0.0);
-        }
-    }
-
     for _ in 0..substeps {
         let dt = delta / substeps as f32;
         // Port SS2's density-weighted buoyancy and quadratic water drag. The
@@ -4387,35 +5781,26 @@ fn simulate_ship_physics(
 }
 
 fn update_gpu_physics_settings(
+    windows: Query<&Window>,
     mut drag: ResMut<tools::move_tool::MoveDragState>,
-    snapshot: Res<GpuShipPhysicsSnapshot>,
     simulation: Res<Simulation>,
     structure: Res<ShipStructure>,
     mut physics: ResMut<GpuShipPhysicsAssets>,
     mut buffers: ResMut<Assets<ShaderBuffer>>,
-    mut last_breaches: Local<Option<Vec<bool>>>,
 ) {
-    if last_breaches.as_ref() != Some(&structure.breached) {
-        if let Some(mut buffer) = buffers.get_mut(&physics.masks) {
-            *buffer = ShaderBuffer::from(mask_struts_data::gpu_mask_storage(current_render_masks(
-                &structure, &snapshot,
-            )));
-        } else {
-            bevy::log::error!("GPU ship physics topology buffer is missing");
-        }
-        *last_breaches = Some(structure.breached.clone());
-    }
+    // MaskData is initialized only when creating/resetting a ship. Source
+    // BreakTool and ShipPhysics mutate the live GPU state; asynchronous
+    // readbacks and the legacy coarse CPU breach grid are observational only.
 
-    let configured_iterations = simulation.physics_iterations.round().clamp(1.0, 200.0) as u32;
+    let configured_iterations = simulation.physics_iterations.round().clamp(1.0, 1000.0) as u32;
     let water_steps = simulation
         .water_steps
         .round()
         .clamp(1.0, configured_iterations as f32) as u32;
-    let iterations = if simulation.paused || drag.dragging {
-        0
-    } else {
-        configured_iterations
-    };
+    let visible = windows.single().map_or(true, |window| {
+        window.physical_width() != 0 && window.physical_height() != 0
+    });
+    let iterations = if visible && !drag.dragging { configured_iterations } else { 0 };
     physics.iterations = iterations;
     physics.water_steps = water_steps;
     let mut settings = gpu_settings(
@@ -4674,21 +6059,25 @@ fn load_ship_visual_asset(
     images: &mut Assets<Image>,
 ) -> Handle<Image> {
     if choice.material_map && visual_asset == choice.physics_asset {
-        let derived = (|| -> Result<image::RgbaImage, String> {
-            let json = std::fs::read_to_string("assets/config/materials.json")
-                .map_err(|error| error.to_string())?;
-            let global = materials::Materials::from_json(&json)?;
+        let derived = (|| -> Result<Handle<Image>, String> {
             let thumbnail = ship_thumbnail::ShipThumbnail::from_base_file(std::path::Path::new(
                 &format!("assets/{}", choice.physics_asset),
             ))?;
-            thumbnail
-                .texture(&ShipLayer::default(), &global)?
-                .ok_or_else(|| "missing default texture".to_owned())
+            // This synchronous asset path must finish BASE before the source's
+            // nonblocking generated texture can return an image.
+            thumbnail.base_layer()?;
+            match thumbnail.get_resource(ShipResourceType::Texture, &ShipLayer::default()) {
+                Some(ship_thumbnail::ThumbnailResource::File(resource)) => {
+                    resource.texture_now(images)
+                }
+                Some(ship_thumbnail::ThumbnailResource::BaseDerivedTexture(resource)) => {
+                    resource.texture_now_current(images)
+                }
+                None => Err("missing default texture".into()),
+            }
         })();
         match derived {
-            Ok(rgba) => {
-                return images.add(texture_2d::ship_texture(rgba));
-            }
+            Ok(texture) => return texture,
             Err(error) => bevy::log::warn!("Could not derive ship appearance: {error}"),
         }
     }
@@ -4713,21 +6102,8 @@ fn load_ship_light_assets(
     layer: &ShipLayer,
     assets: &AssetServer,
     images: &mut Assets<Image>,
+    black: &Handle<Image>,
 ) -> (Handle<Image>, Handle<Image>) {
-    use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
-    let mut black = Image::new(
-        Extent3d {
-            width: 1,
-            height: 1,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        vec![0, 0, 0, 255],
-        TextureFormat::Rgba8UnormSrgb,
-        RenderAssetUsages::default(),
-    );
-    black.sampler = bevy::image::ImageSampler::nearest();
-    let black = images.add(black);
     let thumbnail = ship_thumbnail::ShipThumbnail::from_base_file(std::path::Path::new(&format!(
         "assets/{}",
         choice.physics_asset
@@ -4737,18 +6113,20 @@ fn load_ship_light_assets(
         .as_ref()
         .and_then(|ship| ship.get_resource(kind, layer))
     {
-        Some(ship_thumbnail::ThumbnailResource::File(resource)) => match resource.image_data() {
-            Ok(image) => images.add(texture_2d::ship_texture(image)),
-            Err(error) => {
-                bevy::log::warn!("Could not load ship light map: {error}");
-                assets
-                    .load_builder()
-                    .with_settings(|settings: &mut bevy::image::ImageLoaderSettings| {
-                        settings.sampler = texture_2d::ship_sampler();
-                    })
-                    .load(asset_path(&resource.path))
+        Some(ship_thumbnail::ThumbnailResource::File(resource)) => {
+            match resource.texture_now(images) {
+                Ok(texture) => texture,
+                Err(error) => {
+                    bevy::log::warn!("Could not load ship light map: {error}");
+                    assets
+                        .load_builder()
+                        .with_settings(|settings: &mut bevy::image::ImageLoaderSettings| {
+                            settings.sampler = texture_2d::ship_sampler();
+                        })
+                        .load(asset_path(&resource.path))
+                }
             }
-        },
+        }
         _ => black.clone(),
     };
     (
@@ -4760,36 +6138,35 @@ fn load_ship_light_assets(
 fn sync_ship_assets(
     assets: Res<AssetServer>,
     mut images: ResMut<Assets<Image>>,
+    black_texture: Res<ship_black_texture::SharedBlackTexture>,
     catalog: Res<ShipCatalog>,
     simulation: Res<Simulation>,
+    preview: Res<ship_upload_preview::ActivePreview>,
+    retained: Option<Res<ship_runtime_reset::ActiveThumbnail>>,
     mut materials: ResMut<Assets<ShipMaterial>>,
     mut reflection_materials: ResMut<Assets<ReflectionMaterial>>,
     mut ships: Query<(&mut Sprite, &mut Transform, &mut Visibility), With<ShipSprite>>,
-    mut mesh_ships: Query<(&ShipMesh, &mut Visibility), Without<ShipSprite>>,
-    mut reflections: Query<(&ReflectionMesh, &mut Transform), Without<ShipSprite>>,
-    mut last_ship: Local<Option<(usize, usize)>>,
+    mut mesh_ships: Query<(&ShipMesh, &mut Visibility), (Without<ShipSprite>,Without<ReflectionMesh>)>,
+    mut reflections: Query<(&ReflectionMesh, &mut Transform, &mut Visibility), (Without<ShipSprite>,Without<ShipMesh>)>,
+    mut last_ship: Local<Option<(usize, usize,u64)>>,
 ) {
-    let state = (simulation.ship_index, simulation.selected_layer);
-    if *last_ship == Some(state) {
-        return;
-    }
-    *last_ship = Some(state);
-    let Some(choice) = catalog.0.get(simulation.ship_index) else {
-        return;
+    let state = (simulation.ship_index, simulation.selected_layer,preview.revision);
+    let changed=*last_ship!=Some(state);
+    *last_ship=Some(state);
+    let active=preview.thumbnail.as_ref().or_else(||retained.as_ref().and_then(|retained|retained.0.as_ref()));
+    if !changed && active.is_none() {return;}
+    let (image,internal_lights,external_lights,visible,scale)=if let Some(thumbnail)=active {
+        let appearance=ship_runtime_reset::appearance(thumbnail,simulation.selected_layer,&mut images,&black_texture.0);
+        let width=if changed {thumbnail.base_layer().map(|image|image.width()).unwrap_or(1000)}else {1000};
+        (appearance.texture,appearance.internal,appearance.external,appearance.visible,(360.0/width.max(1)as f32).clamp(0.01,1.0))
+    } else {
+        let Some(choice)=catalog.0.get(simulation.ship_index) else {return;};
+        let visual_asset=catalog.layer_asset(simulation.ship_index,simulation.selected_layer).unwrap_or(&choice.asset);
+        let layer=ship_upload_preview::layer(&catalog,&simulation,None,None,simulation.selected_layer).cloned().unwrap_or_default();
+        let image=load_ship_visual_asset(choice,visual_asset,&assets,&mut images);
+        let (internal,external)=load_ship_light_assets(choice,&layer,&assets,&mut images,&black_texture.0);
+        (image,internal,external,true,choice.scale)
     };
-    let visual_asset = catalog
-        .layer_asset(simulation.ship_index, simulation.selected_layer)
-        .unwrap_or(&choice.asset)
-        .to_owned();
-    let image = load_ship_visual_asset(choice, &visual_asset, &assets, &mut images);
-    let layer = catalog
-        .1
-        .get(simulation.ship_index)
-        .and_then(|layers| layers.get(simulation.selected_layer))
-        .map(|entry| entry.name.clone())
-        .unwrap_or_default();
-    let (internal_lights, external_lights) =
-        load_ship_light_assets(choice, &layer, &assets, &mut images);
     for (mut sprite, mut transform, mut visibility) in &mut ships {
         sprite.image = image.clone();
         transform.scale = Vec3::ONE;
@@ -4801,113 +6178,22 @@ fn sync_ship_assets(
             material.internal_lights = internal_lights.clone();
             material.external_lights = external_lights.clone();
         }
-        *visibility = Visibility::Inherited;
+        *visibility = if visible {Visibility::Inherited}else{Visibility::Hidden};
     }
-    for (reflection, mut transform) in &mut reflections {
+    for (reflection, mut transform, mut visibility) in &mut reflections {
         if let Some(mut material) = reflection_materials.get_mut(&reflection.material) {
             material.texture = image.clone();
         }
-        transform.scale = Vec3::splat(choice.scale);
+        if changed {transform.scale = Vec3::splat(scale);}
+        *visibility = if visible {Visibility::Inherited}else{Visibility::Hidden};
     }
 }
 
-fn sync_ship_cards(
+fn sync_tool_icons(
     simulation: Res<Simulation>,
-    catalog: Res<ShipCatalog>,
-    mut cards: Query<
-        (&ShipCard, &mut Sprite, &mut Transform, &mut Visibility),
-        (
-            Without<ShipThumbnail>,
-            Without<ShipNameLabel>,
-            Without<ToolCard>,
-        ),
-    >,
-    mut thumbnails: Query<
-        (&ShipThumbnail, &mut Transform, &mut Visibility),
-        (Without<ShipCard>, Without<ShipNameLabel>, Without<ToolCard>),
-    >,
-    mut names: Query<
-        (&ShipNameLabel, &mut Transform, &mut Visibility),
-        (Without<ShipCard>, Without<ShipThumbnail>, Without<ToolCard>),
-    >,
-    mut tools: Query<
-        (&ToolCard, &mut Sprite, &mut Visibility),
-        (
-            Without<ShipCard>,
-            Without<ShipThumbnail>,
-            Without<ShipNameLabel>,
-        ),
-    >,
-    mut glyphs: Query<
-        &mut Visibility,
-        (
-            With<ToolGlyph>,
-            Without<ToolCard>,
-            Without<ShipCard>,
-            Without<ShipThumbnail>,
-            Without<ShipNameLabel>,
-        ),
-    >,
-    mut last_visual_state: Local<Option<(usize, usize, Tool, bool, bool, bool, String)>>,
+    mut tools: Query<(&ToolCard, &mut Sprite, &mut Visibility), Without<ToolGlyph>>,
+    mut glyphs: Query<(&ToolGlyph, &mut Sprite, &mut Visibility), Without<ToolCard>>,
 ) {
-    let visible_choices = filtered_ship_indices(&catalog, &simulation.ship_search);
-    let state = (
-        simulation.ship_index,
-        simulation.ship_scroll,
-        simulation.tool,
-        simulation.pump_enabled,
-        simulation.show_tools,
-        simulation.toolbox_collapsed,
-        simulation.ship_search.clone(),
-    );
-    if last_visual_state.as_ref() == Some(&state) {
-        return;
-    }
-    *last_visual_state = Some(state);
-    for (card, mut sprite, mut transform, mut visibility) in &mut cards {
-        let row = visible_choices
-            .iter()
-            .position(|&index| index == card.0)
-            .map(|position| position as isize - simulation.ship_scroll as isize);
-        let visible = row.is_some_and(|row| (0..4).contains(&row));
-        transform.translation.y = row.map_or(-500.0, |row| 122.0 - row as f32 * 57.0);
-        *visibility = if visible && !simulation.toolbox_collapsed {
-            Visibility::Inherited
-        } else {
-            Visibility::Hidden
-        };
-        sprite.color = if card.0 == simulation.ship_index {
-            Color::srgb(0.32, 0.39, 0.58)
-        } else {
-            Color::srgb(0.20, 0.23, 0.32)
-        };
-    }
-    for (thumbnail, mut transform, mut visibility) in &mut thumbnails {
-        let row = visible_choices
-            .iter()
-            .position(|&index| index == thumbnail.0)
-            .map(|position| position as isize - simulation.ship_scroll as isize);
-        transform.translation.y = row.map_or(-500.0, |row| 122.0 - row as f32 * 57.0);
-        *visibility =
-            if row.is_some_and(|row| (0..4).contains(&row)) && !simulation.toolbox_collapsed {
-                Visibility::Inherited
-            } else {
-                Visibility::Hidden
-            };
-    }
-    for (name, mut transform, mut visibility) in &mut names {
-        let row = visible_choices
-            .iter()
-            .position(|&index| index == name.0)
-            .map(|position| position as isize - simulation.ship_scroll as isize);
-        transform.translation.y = row.map_or(-500.0, |row| 122.0 - row as f32 * 57.0);
-        *visibility =
-            if row.is_some_and(|row| (0..4).contains(&row)) && !simulation.toolbox_collapsed {
-                Visibility::Inherited
-            } else {
-                Visibility::Hidden
-            };
-    }
     for (card, mut sprite, mut visibility) in &mut tools {
         let selected = card.0 == simulation.tool;
         sprite.color = if selected {
@@ -4921,7 +6207,12 @@ fn sync_ship_cards(
             Visibility::Hidden
         };
     }
-    for mut visibility in &mut glyphs {
+    for (glyph, mut sprite, mut visibility) in &mut glyphs {
+        sprite.image = if glyph.tool == simulation.tool {
+            glyph.active.clone()
+        } else {
+            glyph.normal.clone()
+        };
         *visibility = if simulation.show_tools {
             Visibility::Inherited
         } else {
@@ -4956,39 +6247,530 @@ fn animate_leaks(
     }
 }
 
-fn update_hud(
-    simulation: Res<Simulation>,
-    structure: Res<ShipStructure>,
-    markers: Query<(), With<LeakMarker>>,
-    mut labels: Query<&mut Text2d, With<Hud>>,
-) {
-    if !simulation.is_changed() {
-        return;
-    }
-
-    let leak_count = markers.iter().count();
-    for mut label in &mut labels {
-        let broken = structure
-            .springs
-            .iter()
-            .filter(|spring| spring.broken)
-            .count();
-        label.0 = format!(
-            "SINKING SIMULATOR  /  BEVY PORT\nLeaks: {leak_count}   Flooding: {:>4.1}%   Springs broken: {broken}   {}",
-            simulation.flooding * 100.0,
-            if simulation.paused {
-                "PAUSED"
-            } else {
-                "RUNNING"
-            },
-        );
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::time::Duration;
+
+    #[test]
+    fn tool_panel_anchor_keeps_render_clicks_and_camera_capture_aligned_on_resize() {
+        let mut app = App::new();
+        app.init_resource::<Simulation>()
+            .init_resource::<ButtonInput<MouseButton>>()
+            .init_resource::<ButtonInput<KeyCode>>()
+            .insert_resource(music_player::MusicPlayer::new(Vec::new()))
+            .add_systems(PreUpdate, update_tool_panel_layout)
+            .add_systems(
+                Update,
+                (
+                    sync_tool_panel_position,
+                    select_toolbox_tab_and_settings,
+                    select_tool_from_panel,
+                )
+                    .chain(),
+            );
+        let window = app
+            .world_mut()
+            .spawn(Window {
+                resolution: (1280, 720).into(),
+                ..default()
+            })
+            .id();
+        app.world_mut()
+            .get_mut::<Window>(window)
+            .unwrap()
+            .set_cursor_position(Some(Vec2::new(60.0, 620.0)));
+        let icon = app
+            .world_mut()
+            .spawn(tool_panel_position(-220.0, 250.0, 22.0))
+            .id();
+        app.world_mut().spawn((
+            SettingRow(8),
+            Transform::from_xyz(-580.0, -260.0, 24.0),
+            Visibility::Visible,
+        ));
+        app.world_mut()
+            .resource_mut::<ButtonInput<MouseButton>>()
+            .press(MouseButton::Left);
+        app.update();
+        assert_eq!(
+            app.world().get::<Transform>(icon).unwrap().translation,
+            Vec3::new(-580.0, -260.0, 22.0)
+        );
+        assert!(app.world().resource::<Simulation>().tool == Tool::Break);
+        app.world_mut()
+            .resource_mut::<ButtonInput<MouseButton>>()
+            .clear();
+        app.world_mut()
+            .get_mut::<Window>(window)
+            .unwrap()
+            .set_cursor_position(Some(Vec2::new(70.0, 620.0)));
+        app.update();
+        assert_eq!(
+            app.world().resource::<Simulation>().gravity,
+            9.81,
+            "tool click must not start a drag on an underlying toolbox field"
+        );
+        app.world_mut()
+            .get_mut::<Window>(window)
+            .unwrap()
+            .set_cursor_position(Some(Vec2::new(60.0, 620.0)));
+        app.world_mut()
+            .get_mut::<Window>(window)
+            .unwrap()
+            .resolution = (1920, 720).into();
+        {
+            let mut mouse = app.world_mut().resource_mut::<ButtonInput<MouseButton>>();
+            mouse.reset_all();
+            mouse.press(MouseButton::Left);
+        }
+        app.update();
+        let position = app
+            .world()
+            .get::<Transform>(icon)
+            .unwrap()
+            .translation
+            .truncate();
+        assert_eq!(position, Vec2::new(-900.0, -260.0));
+        assert!(app.world().resource::<Simulation>().tool == Tool::None);
+        let mut simulation = app.world_mut().resource_mut::<Simulation>();
+        simulation.toolbox_collapsed = true;
+        assert!(camera_control::blocked(&simulation, position));
+        assert!(!camera_control::blocked(
+            &simulation,
+            Vec2::new(-220.0, 250.0)
+        ));
+    }
+
+    #[test]
+    fn ship_editor_consumes_committed_unicode_for_each_field_and_drains_closed_text() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .init_resource::<Simulation>()
+            .init_resource::<ship_upload::SourceShipUpload>()
+            .init_resource::<ShipUploadUiState>()
+            .insert_resource(editor_clipboard::Clipboard {fixture:Some(Vec::new())})
+            .init_resource::<ship_upload_layout::Layout>()
+            .init_resource::<ship_upload_preview::ActivePreview>()
+            .init_resource::<ButtonInput<MouseButton>>()
+            .init_resource::<ButtonInput<KeyCode>>()
+            .insert_resource(ShipCatalog(Vec::new(), Vec::new()))
+            .add_message::<KeyboardInput>()
+            .add_message::<FileDragAndDrop>()
+            .add_message::<window_characters::CharacterInput>()
+            .add_systems(Update, handle_ship_upload_ui)
+            .add_systems(PostUpdate,ui_text_viewport::update);
+        let mut window = Window::default();
+        window.set_cursor_position(Some(Vec2::new(30.0, 30.0)));
+        app.world_mut().spawn(window);
+        app.world_mut().spawn((ShipUploadFieldControl(ShipUploadField::Description),Transform::from_xyz(0.0,203.0,82.0),
+            Sprite::from_color(Color::WHITE,Vec2::new(536.0,144.0))));
+        app.world_mut().resource_mut::<ship_upload::SourceShipUpload>().create_new();
+        for field in [ShipUploadField::Name, ShipUploadField::Description, ShipUploadField::LayerName] {
+            app.world_mut().resource_mut::<ShipUploadUiState>().focus = Some(field);
+            if field==ShipUploadField::LayerName {
+                let world=app.world_mut();let mut query=world.query::<&mut Window>();
+                query.single_mut(world).unwrap().set_cursor_position(None);
+            }
+            for character in "船🚢".chars() {
+                app.world_mut().write_message(window_characters::CharacterInput(character as u32));
+            }
+            app.update();
+        }
+        {
+            let world=app.world_mut();let mut query=world.query::<&mut Window>();
+            query.single_mut(world).unwrap().set_cursor_position(Some(Vec2::new(30.0,30.0)));
+        }
+        let upload = app.world().resource::<ship_upload::SourceShipUpload>();
+        assert_eq!(upload.ship_name(), "船🚢");
+        assert_eq!(upload.ship_description(), "A Description船🚢");
+        assert_eq!(upload.new_layer_name(), "船🚢");
+        // Exercise actual native keyboard messages through the editor handler.
+        app.world_mut().resource_mut::<ShipUploadUiState>().focus = Some(ShipUploadField::Name);
+        app.world_mut().resource_mut::<ship_upload::SourceShipUpload>().set_ship_name("abcd");
+        app.update();
+        let target = app.world_mut().query::<Entity>().iter(app.world()).next().unwrap();
+        let send_key = |app: &mut App, code: KeyCode| {
+            app.world_mut().write_message(KeyboardInput {
+                key_code: code,
+                logical_key: bevy::input::keyboard::Key::Unidentified(bevy::input::keyboard::NativeKey::Unidentified),
+                state: bevy::input::ButtonState::Pressed, text: None, repeat: false, window: target,
+            });
+            app.update();
+        };
+        // Clipboard shortcuts exercise the native handler with isolated data.
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(KeyCode::ControlLeft);
+        send_key(&mut app,KeyCode::KeyC);
+        assert_eq!(app.world().resource::<editor_clipboard::Clipboard>().fixture.as_deref(),Some(&[97,98,99,100][..]));
+        send_key(&mut app,KeyCode::KeyX);
+        assert_eq!(app.world().resource::<ship_upload::SourceShipUpload>().ship_name(),"");
+        app.world_mut().resource_mut::<editor_clipboard::Clipboard>().fixture=Some(vec![65,9,10,13,127,0xe000,0xd83d,0xde80,0,66]);
+        send_key(&mut app,KeyCode::KeyV);
+        assert_eq!(app.world().resource::<ship_upload::SourceShipUpload>().ship_name(),"A🚀");
+        assert_eq!(app.world().resource::<ShipUploadUiState>().editors[0].undo.records[1].delete_length,3);
+        send_key(&mut app,KeyCode::Insert);
+        assert_eq!(app.world().resource::<editor_clipboard::Clipboard>().fixture.as_deref(),Some(&[65,0xd83d,0xde80][..]));
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release(KeyCode::ControlLeft);
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(KeyCode::ShiftLeft);
+        send_key(&mut app,KeyCode::Delete);
+        assert_eq!(app.world().resource::<ship_upload::SourceShipUpload>().ship_name(),"");
+        send_key(&mut app,KeyCode::Insert);
+        assert_eq!(app.world().resource::<ship_upload::SourceShipUpload>().ship_name(),"A🚀");
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release(KeyCode::ShiftLeft);
+        app.world_mut().resource_mut::<ShipUploadUiState>().focus=Some(ShipUploadField::Description);
+        app.update();
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(KeyCode::ControlLeft);
+        send_key(&mut app,KeyCode::KeyX);
+        assert_eq!(app.world().resource::<ship_upload::SourceShipUpload>().ship_description(),"A Description船🚢");
+        app.world_mut().resource_mut::<editor_clipboard::Clipboard>().fixture=Some(vec![10,65,9,13]);
+        send_key(&mut app,KeyCode::KeyV);
+        assert_eq!(app.world().resource::<ship_upload::SourceShipUpload>().ship_description(),"A Description船🚢\nA");
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release(KeyCode::ControlLeft);
+        app.world_mut().resource_mut::<ship_upload::SourceShipUpload>().set_ship_description("A Description船🚢");
+        app.world_mut().resource_mut::<ShipUploadUiState>().focus=Some(ShipUploadField::Name);
+        app.world_mut().resource_mut::<ship_upload::SourceShipUpload>().set_ship_name("abcd");
+        app.update();
+        send_key(&mut app, KeyCode::Home);
+        send_key(&mut app, KeyCode::ArrowRight);
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(KeyCode::ShiftLeft);
+        send_key(&mut app, KeyCode::ArrowRight);
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release(KeyCode::ShiftLeft);
+        app.world_mut().write_message(window_characters::CharacterInput('X' as u32));
+        app.update();
+        assert_eq!(app.world().resource::<ship_upload::SourceShipUpload>().ship_name(), "aXcd");
+        // The original input queue precedes Backspace even in the same frame.
+        app.world_mut().write_message(window_characters::CharacterInput('Z' as u32));
+        send_key(&mut app, KeyCode::Backspace);
+        assert_eq!(app.world().resource::<ship_upload::SourceShipUpload>().ship_name(), "aXcd");
+        app.world_mut().resource_mut::<ship_upload::SourceShipUpload>().set_ship_name("");
+        app.update();
+        for value in "abc".chars() {app.world_mut().write_message(window_characters::CharacterInput(value as u32));}
+        app.update();
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(KeyCode::ControlLeft);
+        send_key(&mut app,KeyCode::KeyZ);
+        assert_eq!(app.world().resource::<ship_upload::SourceShipUpload>().ship_name(),"ab");
+        send_key(&mut app,KeyCode::KeyY);
+        assert_eq!(app.world().resource::<ship_upload::SourceShipUpload>().ship_name(),"ab");
+        let editor=&app.world().resource::<ShipUploadUiState>().editors[0];
+        assert_eq!((editor.buffer.len_w,editor.cursor),(1,2));
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release(KeyCode::ControlLeft);
+        app.world_mut().resource_mut::<ShipUploadUiState>().focus = Some(ShipUploadField::Description);
+        send_key(&mut app, KeyCode::Enter);
+        assert!(app.world().resource::<ship_upload::SourceShipUpload>().ship_description().ends_with('\n'));
+        app.world_mut().resource_mut::<ship_upload::SourceShipUpload>().set_ship_description("Wi\nil\nWWW\n");
+        app.update();
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(KeyCode::ControlLeft);
+        send_key(&mut app,KeyCode::Home);
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release(KeyCode::ControlLeft);
+        send_key(&mut app,KeyCode::ArrowRight);send_key(&mut app,KeyCode::ArrowRight);
+        for (key,expected) in [(KeyCode::ArrowDown,5),(KeyCode::ArrowDown,7),(KeyCode::ArrowUp,5),(KeyCode::ArrowUp,2)] {
+            send_key(&mut app,key);
+            let editor=&app.world().resource::<ShipUploadUiState>().editors[1];
+            assert_eq!(editor.cursor,expected);assert_eq!(editor.preferred_x.to_bits(),1099232706);
+        }
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(KeyCode::ShiftLeft);
+        send_key(&mut app,KeyCode::ArrowDown);
+        let editor=&app.world().resource::<ShipUploadUiState>().editors[1];
+        assert_eq!((editor.select_start,editor.select_end),(2,5));
+        send_key(&mut app,KeyCode::ArrowUp);
+        let editor=&app.world().resource::<ShipUploadUiState>().editors[1];
+        assert_eq!((editor.select_start,editor.select_end),(2,2));
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release(KeyCode::ShiftLeft);
+
+        // Ctrl+vertical arrows set child-window targets without changing the caret.
+        app.world_mut().resource_mut::<ship_upload::SourceShipUpload>().set_ship_description("a\na\na\na\na\na\na\na");
+        app.update();app.update();
+        let caret=app.world().resource::<ShipUploadUiState>().editors[1].cursor;
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(KeyCode::ControlLeft);
+        send_key(&mut app,KeyCode::ArrowDown);
+        assert_eq!(app.world().resource::<ShipUploadUiState>().editors[1].scroll_y,0.0);
+        assert_eq!(app.world().resource::<ShipUploadUiState>().description_scroll.window.target.y,18.0);
+        app.update();
+        assert_eq!(app.world().resource::<ShipUploadUiState>().editors[1].scroll_y,18.0);
+        assert_eq!(app.world().resource::<ShipUploadUiState>().editors[1].cursor,caret);
+        app.world_mut().resource_mut::<ship_upload::SourceShipUpload>().set_ship_description("b\na\na\na\na\na\na\na");
+        app.update();
+        assert_eq!(app.world().resource::<ShipUploadUiState>().editors[1].scroll_y,18.0);
+        send_key(&mut app,KeyCode::ArrowUp);app.update();
+        assert_eq!(app.world().resource::<ShipUploadUiState>().editors[1].scroll_y,0.0);
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release(KeyCode::ControlLeft);
+        // Clicking the track seeks immediately, holds the caret, and captures outside drags.
+        {
+            let world=app.world_mut();let mut query=world.query::<&mut Window>();let mut window=query.single_mut(world).unwrap();
+            let point=Vec2::new(window.width()*0.5+261.0*window.height()/720.0,window.height()*0.5-135.0*window.height()/720.0);
+            window.set_cursor_position(Some(point));
+        }
+        let caret=app.world().resource::<ShipUploadUiState>().editors[1].cursor;
+        app.world_mut().resource_mut::<ButtonInput<MouseButton>>().press(MouseButton::Left);app.update();
+        assert!(app.world().resource::<ShipUploadUiState>().description_scroll.held);
+        assert_eq!(app.world().resource::<ShipUploadUiState>().editors[1].scroll_y,24.0);
+        assert_eq!(app.world().resource::<ShipUploadUiState>().editors[1].cursor,caret);
+        app.world_mut().resource_mut::<ButtonInput<MouseButton>>().clear();
+        {
+            let world=app.world_mut();let mut query=world.query::<&mut Window>();let mut window=query.single_mut(world).unwrap();
+            let point=Vec2::new(window.width()*0.5+1000.0*window.height()/720.0,window.height()*0.5-272.0*window.height()/720.0);
+            window.set_cursor_position(Some(point));
+        }
+        app.update();assert_eq!(app.world().resource::<ShipUploadUiState>().editors[1].scroll_y,0.0);
+        *app.world_mut().resource_mut::<ButtonInput<MouseButton>>()=Default::default();app.update();
+        assert!(!app.world().resource::<ShipUploadUiState>().description_scroll.held);
+
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().press(KeyCode::ControlLeft);
+        send_key(&mut app,KeyCode::Enter);
+        app.world_mut().resource_mut::<ButtonInput<KeyCode>>().release(KeyCode::ControlLeft);
+        assert_eq!(app.world().resource::<ShipUploadUiState>().focus,None);
+        let description=app.world().resource::<ship_upload::SourceShipUpload>().ship_description();
+        app.world_mut().write_message(window_characters::CharacterInput('q' as u32));app.update();
+        assert_eq!(app.world().resource::<ship_upload::SourceShipUpload>().ship_description(),description);
+        app.world_mut().resource_mut::<ShipUploadUiState>().focus=Some(ShipUploadField::Name);
+        app.update();
+        let original_name=app.world().resource::<ship_upload::SourceShipUpload>().ship_name();
+        app.world_mut().write_message(window_characters::CharacterInput('Q' as u32));app.update();
+        send_key(&mut app,KeyCode::Escape);
+        assert_eq!(app.world().resource::<ship_upload::SourceShipUpload>().ship_name(),original_name);
+        assert!(app.world().resource::<ship_upload::SourceShipUpload>().window_open());
+        assert_eq!(app.world().resource::<ShipUploadUiState>().focus,None);
+        send_key(&mut app,KeyCode::Escape);
+        assert!(app.world().resource::<ship_upload::SourceShipUpload>().window_open());
+        // Pointer activation and clicking outside a field control ownership.
+        app.world_mut().spawn((ShipUploadFieldControl(ShipUploadField::Name),
+            Transform::default(),Sprite::from_color(Color::WHITE,Vec2::new(100.0,30.0))));
+        {
+            let world=app.world_mut();let mut query=world.query::<&mut Window>();
+            let mut window=query.single_mut(world).unwrap();
+            let center=Vec2::new(window.width()*0.5,window.height()*0.5);
+            window.set_cursor_position(Some(center));
+        }
+        app.world_mut().resource_mut::<ButtonInput<MouseButton>>().press(MouseButton::Left);
+        app.update();
+        assert_eq!(app.world().resource::<ShipUploadUiState>().focus,Some(ShipUploadField::Name));
+        *app.world_mut().resource_mut::<ButtonInput<MouseButton>>()=Default::default();
+        app.update(); // Source click detection requires a released frame between presses.
+        {
+            let world=app.world_mut();let mut query=world.query::<&mut Window>();
+            let mut window=query.single_mut(world).unwrap();
+            // Source floors mouse coordinates; stay beyond the glyph midpoint after flooring.
+            let point_x=-46.0+source_font_advances::advance(97)*0.8;
+            let point=Vec2::new(window.width()*0.5+point_x*window.height()/720.0,window.height()*0.5);
+            window.set_cursor_position(Some(point));
+        }
+        app.world_mut().resource_mut::<ButtonInput<MouseButton>>().press(MouseButton::Left);
+        app.update();
+        assert_eq!(app.world().resource::<ShipUploadUiState>().editors[0].cursor,1);
+        app.world_mut().resource_mut::<ButtonInput<MouseButton>>().clear();
+        {
+            let world=app.world_mut();let mut query=world.query::<&mut Window>();
+            let mut window=query.single_mut(world).unwrap();
+            let point=Vec2::new(window.width()*0.5+400.0*window.height()/720.0,window.height()*0.5);
+            window.set_cursor_position(Some(point));
+        }
+        app.update();
+        let editor=&app.world().resource::<ShipUploadUiState>().editors[0];
+        assert_eq!((editor.cursor,editor.select_start,editor.select_end),(1,1,2));
+        *app.world_mut().resource_mut::<ButtonInput<MouseButton>>()=Default::default();
+        app.update();
+        {
+            let world=app.world_mut();let mut query=world.query::<&mut Window>();
+            query.single_mut(world).unwrap().set_cursor_position(Some(Vec2::ZERO));
+        }
+        let name_before_outside=app.world().resource::<ship_upload::SourceShipUpload>().ship_name();
+        app.world_mut().write_message(window_characters::CharacterInput('!' as u32));
+        app.world_mut().resource_mut::<ButtonInput<MouseButton>>().press(MouseButton::Left);
+        app.update();
+        assert_eq!(app.world().resource::<ShipUploadUiState>().focus,None);
+        assert_eq!(app.world().resource::<ship_upload::SourceShipUpload>().ship_name(),name_before_outside);
+        *app.world_mut().resource_mut::<ButtonInput<MouseButton>>()=Default::default();
+        // Drive the original double-click pairing through the live handler.
+        app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(std::time::Duration::from_millis(100)));
+        for _ in 0..4 {app.update();}
+        {
+            let world=app.world_mut();let mut query=world.query::<&mut Window>();
+            let mut window=query.single_mut(world).unwrap();
+            let center=Vec2::new(window.width()*0.5,window.height()*0.5);
+            window.set_cursor_position(Some(center));
+        }
+        app.world_mut().resource_mut::<ButtonInput<MouseButton>>().press(MouseButton::Left);
+        app.update();
+        *app.world_mut().resource_mut::<ButtonInput<MouseButton>>()=Default::default();
+        app.update();
+        app.world_mut().resource_mut::<ButtonInput<MouseButton>>().press(MouseButton::Left);
+        app.update();
+        let editor=&app.world().resource::<ShipUploadUiState>().editors[0];
+        assert_eq!((editor.select_start,editor.select_end),(0,2));
+        assert!(editor.selected_all_mouse_lock);
+        app.world_mut().resource_mut::<ButtonInput<MouseButton>>().clear();
+        {
+            let world=app.world_mut();let mut query=world.query::<&mut Window>();
+            query.single_mut(world).unwrap().set_cursor_position(Some(Vec2::ZERO));
+        }
+        app.update();
+        let editor=&app.world().resource::<ShipUploadUiState>().editors[0];
+        assert_eq!((editor.select_start,editor.select_end),(0,2));
+        *app.world_mut().resource_mut::<ButtonInput<MouseButton>>()=Default::default();
+        app.update();
+        assert!(!app.world().resource::<ShipUploadUiState>().editors[0].selected_all_mouse_lock);
+        app.world_mut().resource_mut::<ship_upload::SourceShipUpload>().set_window_open(false);
+        app.world_mut().write_message(window_characters::CharacterInput('x' as u32));
+        app.update();
+        app.world_mut().resource_mut::<ship_upload::SourceShipUpload>().set_window_open(true);
+        app.update();
+        assert_eq!(app.world().resource::<ship_upload::SourceShipUpload>().new_layer_name(), "");
+    }
+
+    #[test]
+    fn ui_sync_runtime_handles_editor_queries_and_changing_layer_counts() {
+        let mut app = App::new();
+        app.init_resource::<Simulation>()
+            .init_resource::<ship_upload::SourceShipUpload>()
+            .init_resource::<ShipUploadUiState>()
+            .init_resource::<Assets<Image>>()
+            .insert_resource(ShipCatalog(
+                vec![ShipChoice {
+                    name: "UI fixture".into(),
+                    asset: "fixture.png".into(),
+                    physics_asset: "fixture_base.png".into(),
+                    material_map: true,
+                    scale: 1.0,
+                    source_key: None,
+                }],
+                vec![vec![
+                    ShipLayerChoice {
+                        name: ShipLayer::default(),
+                        asset: "fixture.png".into(),
+                    },
+                    ShipLayerChoice {
+                        name: ShipLayer::new("exterior"),
+                        asset: "exterior.png".into(),
+                    },
+                ]],
+            ))
+            .add_systems(Update, (sync_ship_layer_dropdown, sync_ship_upload_ui))
+            .add_systems(
+                Update,
+                sync_tool_panel_position.after(sync_ship_layer_dropdown),
+            );
+        app.world_mut()
+            .resource_mut::<Simulation>()
+            .layer_dropdown_open = true;
+        let background = app
+            .world_mut()
+            .spawn((
+                ShipLayerDropdownBackground,
+                Sprite::default(),
+                tool_panel_position(-145.0, 273.0, 39.0),
+                Visibility::Hidden,
+            ))
+            .id();
+        let save = app
+            .world_mut()
+            .spawn((ShipUploadSaveControl, Visibility::Visible))
+            .id();
+        let status = app
+            .world_mut()
+            .spawn((ShipUploadStatusText, Text2d::new("")))
+            .id();
+        app.world_mut()
+            .resource_mut::<ship_upload::SourceShipUpload>()
+            .create_new();
+        app.update();
+        app.update();
+        fn visible_options(app: &mut App) -> usize {
+            let world = app.world_mut();
+            let mut query = world.query_filtered::<&Visibility, With<ShipLayerDropdownOption>>();
+            query
+                .iter(world)
+                .filter(|value| **value == Visibility::Visible)
+                .count()
+        }
+        assert_eq!(visible_options(&mut app), 2);
+        assert_eq!(
+            app.world().get::<Visibility>(save),
+            Some(&Visibility::Hidden)
+        );
+        assert_eq!(
+            app.world().get::<Text2d>(status).unwrap().0,
+            "Some required fields are missing"
+        );
+        {
+            let mut upload = app
+                .world_mut()
+                .resource_mut::<ship_upload::SourceShipUpload>();
+            upload.select_resource(
+                ShipResourceType::Base,
+                ShipResourceFile::new(
+                    std::path::PathBuf::from("UI_fixture_base.png"),
+                    ShipResource::new(
+                        "UI fixture".into(),
+                        ShipLayer::default(),
+                        ShipResourceType::Base,
+                    ),
+                )
+                .unwrap(),
+                ShipLayer::default(),
+            );
+            upload.set_ship_name("\u{00a0}\u{202f}");
+        }
+        app.update();
+        assert_eq!(
+            app.world().get::<Visibility>(save),
+            Some(&Visibility::Hidden)
+        );
+        app.world_mut()
+            .resource_mut::<ship_upload::SourceShipUpload>()
+            .set_ship_name("UI fixture");
+        app.update();
+        assert_eq!(
+            app.world().get::<Visibility>(save),
+            Some(&Visibility::Visible)
+        );
+        assert_eq!(app.world().get::<Text2d>(status).unwrap().0, "");
+        let exterior = ShipLayer::new("exterior");
+        for kind in [ShipResourceType::Base, ShipResourceType::Materials] {
+            assert_eq!(
+                ship_upload_resource_layer(kind, &exterior),
+                ShipLayer::default()
+            );
+        }
+        for kind in [
+            ShipResourceType::Texture,
+            ShipResourceType::InLights,
+            ShipResourceType::ExLights,
+        ] {
+            assert_eq!(ship_upload_resource_layer(kind, &exterior), exterior);
+        }
+        app.world_mut().resource_mut::<ShipCatalog>().1[0].push(ShipLayerChoice {
+            name: ShipLayer::new("interior"),
+            asset: "interior.png".into(),
+        });
+        app.update();
+        app.update();
+        assert_eq!(visible_options(&mut app), 3);
+        app.world_mut().resource_mut::<ShipCatalog>().1[0].truncate(1);
+        app.update();
+        assert_eq!(visible_options(&mut app), 1);
+        assert_eq!(
+            app.world().get::<Sprite>(background).unwrap().custom_size,
+            Some(Vec2::new(230.0, 24.0))
+        );
+        assert_eq!(
+            app.world()
+                .get::<Transform>(background)
+                .unwrap()
+                .translation
+                .truncate(),
+            Vec2::new(-505.0, -225.0)
+        );
+        app.world_mut()
+            .resource_mut::<ship_upload::SourceShipUpload>()
+            .set_window_open(false);
+        app.update();
+        let world = app.world_mut();
+        let mut tabs = world.query_filtered::<&Visibility, With<ShipUploadLayerTab>>();
+        assert!(
+            tabs.iter(world)
+                .all(|visibility| *visibility == Visibility::Hidden)
+        );
+    }
 
     #[test]
     fn source_geometry_damage_upload_preserves_previously_broken_gpu_links() {
@@ -5051,12 +6833,14 @@ mod tests {
 
     #[test]
     fn default_ship_internal_water_mesh_has_renderable_geometry() {
+        let _palette=main_globals::fixture_materials();
         let choice = ShipChoice {
             name: "RMS Titanic".to_owned(),
             asset: "source_ships/Titanic.png".to_owned(),
             physics_asset: "source_ships/Titanic.png".to_owned(),
             material_map: true,
             scale: 1.0,
+            source_key: None,
         };
         let structure = ShipStructure::load_for_choice(&choice);
         let (mesh, cells) = build_internal_water_mesh(&structure);
@@ -5093,12 +6877,14 @@ mod tests {
 
     #[test]
     fn default_ship_flood_and_pump_tools_change_interior_water() {
+        let _palette=main_globals::fixture_materials();
         let choice = ShipChoice {
             name: "RMS Titanic".to_owned(),
             asset: "source_ships/Titanic.png".to_owned(),
             physics_asset: "source_ships/Titanic.png".to_owned(),
             material_map: true,
             scale: 1.0,
+            source_key: None,
         };
         let mut structure = ShipStructure::load_for_choice(&choice);
         let index = structure
@@ -5122,12 +6908,14 @@ mod tests {
 
     #[test]
     fn hull_breach_tool_cuts_a_mesh_hole_and_opens_adjacent_links() {
+        let _palette=main_globals::fixture_materials();
         let choice = ShipChoice {
             name: "RMS Titanic".to_owned(),
             asset: "source_ships/Titanic.png".to_owned(),
             physics_asset: "source_ships/Titanic.png".to_owned(),
             material_map: true,
             scale: 1.0,
+            source_key: None,
         };
         let mut structure = ShipStructure::load_for_choice(&choice);
         let index = (0..structure.solid.len())
@@ -5203,6 +6991,7 @@ mod tests {
 
     #[test]
     fn source_material_maps_build_physics_for_multiple_ships() {
+        let _palette=main_globals::fixture_materials();
         let mapped_ships = ShipCatalog::discover()
             .0
             .into_iter()
@@ -5242,6 +7031,7 @@ mod tests {
 
     #[test]
     fn source_texels_keep_exact_material_identity_and_connectivity() {
+        let _palette=main_globals::fixture_materials();
         let choice = ShipCatalog::discover()
             .0
             .into_iter()
@@ -5294,6 +7084,7 @@ mod tests {
 
     #[test]
     fn deformable_ship_mesh_uses_source_texel_resolution() {
+        let _palette=main_globals::fixture_materials();
         let choice = ShipCatalog::discover()
             .0
             .into_iter()
@@ -5383,6 +7174,7 @@ mod tests {
                     physics_asset: "titanic_base.png".to_owned(),
                     material_map: true,
                     scale: 1.0,
+                    source_key: None,
                 },
                 ShipChoice {
                     name: "Queen Mary".to_owned(),
@@ -5390,6 +7182,7 @@ mod tests {
                     physics_asset: "queen.png".to_owned(),
                     material_map: false,
                     scale: 1.0,
+                    source_key: None,
                 },
             ],
             Vec::new(),
@@ -5400,21 +7193,6 @@ mod tests {
     }
 
     #[test]
-    fn imported_ship_catalog_entries_do_not_duplicate_asset_paths() {
-        let choice = ShipChoice {
-            name: "Imported".to_owned(),
-            asset: "user_ships/imported.png".to_owned(),
-            physics_asset: "user_ships/imported.png".to_owned(),
-            material_map: false,
-            scale: 1.0,
-        };
-        let mut catalog = ShipCatalog(Vec::new(), Vec::new());
-
-        assert_eq!(catalog.add_imported(choice.clone()), 0);
-        assert_eq!(catalog.add_imported(choice), 0);
-        assert_eq!(catalog.0.len(), 1);
-    }
-
     #[test]
     fn wave_frequency_matches_the_reference_shader() {
         assert!((wave_height(20.0, 0.0, 10.0, 40.0) - 7.0).abs() < 0.0001);
@@ -5595,6 +7373,7 @@ mod tests {
 
     #[test]
     fn default_ship_solver_does_not_tear_without_user_damage() {
+        let _palette=main_globals::fixture_materials();
         let catalog = ShipCatalog::discover();
         let structure = ShipStructure::load_for_choice(&catalog.0[0]);
         let mut app = App::new();
@@ -5651,6 +7430,7 @@ mod tests {
 
     #[test]
     fn titanic_cpu_solver_does_not_tear_without_user_damage() {
+        let _palette=main_globals::fixture_materials();
         let catalog = ShipCatalog::discover();
         let choice = catalog
             .0
@@ -5869,3 +7649,4 @@ mod tests {
         assert!(buoyancy_acceleration(9.81, 1.0, 1025.0, flooded) < 0.0);
     }
 }
+

@@ -7,9 +7,78 @@ use crate::{
 };
 pub(crate) const INTERNAL_FORMAT: [i32; 5] = [0, 33326, 33328, 34837, 34836];
 pub(crate) const FORMAT: [i32; 5] = [0, 6403, 33319, 6407, 6408];
+
+pub(crate) struct SourceFloatDataHolder<const N: usize> {
+    pub(crate) width: i32,
+    pub(crate) height: i32,
+    texture: std::sync::Arc<crate::texture_2d::SourceTexture2D>,
+}
+impl<const N: usize> SourceFloatDataHolder<N> {
+    pub(crate) fn new(
+        width: i32,
+        height: i32,
+        backend: std::sync::Arc<std::sync::Mutex<dyn crate::texture::TextureBackend>>,
+        context: crate::resource::ResourceHandle,
+        runtime: &crate::resource::ResourceRuntime,
+    ) -> Result<Self, String> {
+        let format = *FORMAT
+            .get(N)
+            .ok_or_else(|| "source vector size is outside format table".to_owned())?;
+        let internal = INTERNAL_FORMAT[N];
+        // BufferUtils.createByteBuffer(width * height * 4 * 4), regardless of N.
+        let capacity = width.wrapping_mul(height).wrapping_mul(4).wrapping_mul(4);
+        let capacity = usize::try_from(capacity)
+            .map_err(|_| "negative source byte buffer capacity".to_owned())?;
+        let pixels = std::sync::Arc::new(std::sync::Mutex::new(vec![0; capacity]));
+        let texture = crate::texture_2d::SourceTexture2D::new(
+            Some(pixels),
+            [width, height],
+            format,
+            internal,
+            5126,
+            false,
+            std::sync::Arc::new(crate::float_data_texture_config::configure),
+            backend,
+            context,
+            runtime,
+        );
+        Ok(Self {
+            width,
+            height,
+            texture: std::sync::Arc::new(texture),
+        })
+    }
+    pub(crate) fn base_type(&self) -> FloatVectorType {
+        FloatVectorType { components: N }
+    }
+}
+impl<const N: usize> crate::typed_data_holder::SourceTypedDataHolder for SourceFloatDataHolder<N> {
+    type Value = Vec<f32>;
+    type BaseType = FloatVectorType;
+    fn base_type(&self) -> FloatVectorType {
+        FloatVectorType { components: N }
+    }
+}
+impl<const N: usize> crate::gl_data_holder::SourceGlDataHolder for SourceFloatDataHolder<N> {
+    fn source_texture(&self) -> std::sync::Arc<crate::texture_2d::SourceTexture2D> {
+        self.texture.clone()
+    }
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct FloatVectorType {
     pub components: usize,
+}
+impl crate::gl_builder::gl_type::GlType for FloatVectorType {
+    type Value = Vec<f32>;
+    fn type_name(&self) -> &str {
+        match self.components {
+            // The original GLVec1 singleton reports "vec2" despite having size ONE.
+            1 | 2 => "vec2",
+            3 => "vec3",
+            4 => "vec4",
+            _ => panic!("Source GL vector size is outside 1..=4"),
+        }
+    }
 }
 pub(crate) struct FloatDataHolder<const N: usize> {
     texture: DataTexture,
@@ -51,6 +120,7 @@ impl<const N: usize> GlDataHolder for FloatDataHolder<N> {
     }
 }
 impl<const N: usize> TypedDataHolder for FloatDataHolder<N> {
+    type Value = Vec<f32>;
     type BaseType = FloatVectorType;
     fn base_type(&self) -> FloatVectorType {
         FloatVectorType { components: N }

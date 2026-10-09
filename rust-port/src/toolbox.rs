@@ -1,11 +1,12 @@
-//! Toolbox.java graphics colour-picker adapter. Layout uses the Bevy UI panel;
-//! other toolbox pages and source editor/workshop behavior remain unconverted.
+//! Toolbox.java state and active Bevy colour-picker adapter.
+//! Source settings, browser and window flow are translated in toolbox_settings,
+//! toolbox_ship_browser and toolbox_layout; native rendering integration remains partial.
 use bevy::prelude::*;
 pub(crate) fn alpha_at(y: f32) -> f32 {
-    ((y + 310.0) / 360.0).clamp(0.0, 1.0)
+    crate::gui_color_picker_input::pointer_alpha(y)
 }
 pub(crate) fn alpha_marker_y(alpha: f32) -> f32 {
-    -310.0 + alpha * 360.0
+    crate::gui_color_picker_input::alpha_marker(alpha)
 }
 pub(crate) fn rgba_readout_hit(point: Vec2) -> Option<usize> {
     if (point.y + 333.0).abs() > 15.0 {
@@ -17,13 +18,13 @@ pub(crate) fn rgba_readout_hit(point: Vec2) -> Option<usize> {
 mod tests {
     use super::*;
     #[test]
-    fn alpha_picker_and_marker_share_normalized_range() {
+    fn alpha_picker_uses_last_pixel_and_marker_uses_source_draw_extent() {
         assert_eq!(alpha_at(-310.0), 0.0);
         assert_eq!(alpha_at(50.0), 1.0);
         assert_eq!(alpha_at(500.0), 1.0);
-        for alpha in [0.0, 191.0 / 255.0, 1.0] {
-            assert!((alpha_at(alpha_marker_y(alpha)) - alpha).abs() < 0.00001);
-        }
+        assert_eq!(alpha_at(-309.0), 0.0);
+        assert_eq!(alpha_marker_y(191.0 / 255.0), -40.0);
+        assert_eq!(alpha_at(-40.0), 1.0 - 90.0 / 359.0);
     }
     #[test]
     fn rgba_fields_are_individually_selectable() {
@@ -42,6 +43,52 @@ mod tests {
 mod integration_tests {
     use super::*;
     use crate::{SeaColorPreview, SeaColorReadout, Simulation};
+    #[test]
+    fn active_picker_edits_preserve_source_epsilons_and_sync_rounded_markers() {
+        let mut simulation = Simulation::default();
+        simulation.sea_alpha = 191.0 / 255.0;
+        let initial_hsv = simulation.sea_color_memory.read(simulation.sea_color);
+        crate::apply_sea_color_point(Vec2::new(-440.0, -309.0), &mut simulation);
+        assert_eq!(
+            simulation.sea_color,
+            crate::gui_color_picker_input::hsv_to_rgb(Vec3::new(initial_hsv.x, 1.0, 1.0e-6))
+        );
+        crate::apply_sea_hue_point(Vec2::new(-432.0, -309.0), &mut simulation);
+        assert_eq!(
+            simulation.sea_color,
+            crate::gui_color_picker_input::hsv_to_rgb(Vec3::new(1.0 - 1.0e-5, 1.0, 1.0e-6))
+        );
+        assert_eq!(simulation.sea_alpha, 191.0 / 255.0);
+        // An unrelated RGB edit to gray must not inherit a stale colored hue.
+        simulation.sea_color = Vec3::splat(0.5);
+        assert_eq!(
+            simulation.sea_color_memory.read(simulation.sea_color),
+            Vec3::new(0.0, 0.0, 0.5)
+        );
+        let mut app = App::new();
+        app.insert_resource(simulation)
+            .init_resource::<Assets<Mesh>>();
+        let selector = app
+            .world_mut()
+            .spawn((crate::SeaColorSelector, Transform::default()))
+            .id();
+        let alpha = app
+            .world_mut()
+            .spawn((
+                crate::SeaColorSelector,
+                crate::SeaAlphaSelector,
+                Transform::default(),
+            ))
+            .id();
+        app.add_systems(Update, crate::sync_settings_ui);
+        app.update();
+        let position = app.world().get::<Transform>(selector).unwrap().translation;
+        assert_eq!(position.truncate(), Vec2::new(-625.0, -130.0));
+        assert_eq!(
+            app.world().get::<Transform>(alpha).unwrap().translation.y,
+            -40.0
+        );
+    }
     #[test]
     fn source_alpha_value_reaches_render_color_and_ui() {
         let mut simulation = Simulation::default();
@@ -96,7 +143,7 @@ mod integration_tests {
     }
 }
 
-/// Source Toolbox visibility/filter/catalog state. Constructor scheduling, upload and complete rendering remain pending.
+/// Source Toolbox visibility/filter/catalog state. Complete native rendering and constructor scheduling remain pending.
 pub(crate) struct SourceToolbox {
     tools_visible: bool,
     catalog: crate::toolbox_reload::ReloadState<

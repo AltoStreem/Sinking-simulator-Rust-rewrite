@@ -7,6 +7,8 @@
 @group(#{MATERIAL_BIND_GROUP}) @binding(5) var<uniform> sampling: vec4<f32>;
 
 // Source LINEAR_MIPMAP_LINEAR and transparent GL_CLAMP_TO_BORDER sampling.
+// The non-native path samples transparent texels outside the image explicitly;
+// using the configured ClampToEdge sampler here would repeat the scene edge.
 fn border_texel(point: vec2<i32>, size: vec2<i32>, level: i32) -> vec4<f32> {
     if any(point < vec2<i32>(0)) || any(point >= size) { return vec4<f32>(0.0); }
     return textureLoad(tex, point, level);
@@ -21,6 +23,12 @@ fn linear_level(uv: vec2<f32>, level: i32) -> vec4<f32> {
 }
 fn reflection_sample(uv: vec2<f32>, bias: f32) -> vec4<f32> {
     // The source GLSL texture(tex, uv, bias) uses the driver's implicit LOD.
+    // Until the Bevy FBO generator has completed this frame's mip chain, use
+    // only the freshly copied base level rather than sampling stale lower mips.
+    if sampling.y <= 0.5 {
+        if sampling.x > 0.5 { return textureSampleLevel(tex, tex_sampler, uv, 0.0); }
+        return linear_level(uv, 0);
+    }
     if sampling.x > 0.5 { return textureSampleBias(tex, tex_sampler, uv, bias); }
     let dimensions = vec2<f32>(textureDimensions(tex));
     let dx = dpdx(uv) * dimensions;
@@ -51,13 +59,10 @@ fn fragment(mesh: VertexOutput) -> @location(0) vec4<f32> {
         vec4<f32>(0.0, 0.0, 0.0, 1.0), (waterdepth - y) / 1000.0 * waves_time_darkness.w);
     let coverage = smoothstep(y, y2, waterdepth);
     let color = water_color * coverage;
-    let prev = textureSample(tex, tex_sampler, mesh.uv);
+    let prev = reflection_sample(mesh.uv, 0.0);
     let rgb = mix(prev.rgb, color.rgb, color.a);
-    // The source default framebuffer stores RGB bytes before the brush blends.
-    if sampling.w != 0.0 { return vec4<f32>(rgb, max(prev.a, color.a)); }
-    // Convert only after source-space reflection, water mixing and filtering.
-    // Bevy's final sRGB attachment encodes this back to the source RGB values.
-    let linear = select(pow(max((rgb + 0.055) / 1.055, vec3<f32>(0.0)), vec3<f32>(2.4)),
-        rgb / 12.92, rgb <= vec3<f32>(0.04045));
-    return vec4<f32>(linear, max(prev.a, color.a));
+    // The source default framebuffer stores raw GL_RGBA8 code values.
+    // SeaFrame is UNORM too, so leave one sRGB display conversion to Bevy's
+    // final compositor instead of decoding these values a second time.
+    return vec4<f32>(rgb, max(prev.a, color.a));
 }

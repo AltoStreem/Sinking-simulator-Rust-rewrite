@@ -113,6 +113,31 @@ mod tests {
         );
     }
     #[test]
+    fn config_constructor_defaults_query_only_omitted_components_in_source_order() {
+        use crate::gl_state::stencil_op::StencilOp;
+        let mut backend = Backend::default();
+        let state = StencilConfig::with_defaults(
+            &mut backend,
+            Some(StencilWriteMask::new(3)),
+            None,
+            Some(StencilOp::new(1, 2, 3)),
+        );
+        assert_eq!(backend.queries, [2962, 2967, 2963]);
+        state.apply(&mut backend);
+        assert_eq!(
+            backend.operations,
+            ["mask:3", "func:2962:2967:2963", "op:1:2:3"]
+        );
+
+        let mut defaults_backend = Backend::default();
+        let defaults = StencilConfig::with_defaults(&mut defaults_backend, None, None, None);
+        assert_eq!(
+            defaults_backend.queries,
+            [2968, 2962, 2967, 2963, 2964, 2965, 2966]
+        );
+        assert!(defaults.write_mask.is_some() && defaults.func.is_some() && defaults.op.is_some());
+    }
+    #[test]
     fn callback_failure_preserves_source_unrestored_state() {
         let state = StencilWriteMask::new(1);
         let mut backend = Backend {

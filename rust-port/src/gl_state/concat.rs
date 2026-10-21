@@ -1,7 +1,23 @@
 //! GLState.Concat. Bytecode invokes the parent getCurrentState inside its map,
 //! so nonempty snapshots recurse indefinitely in Java, not into child states.
 use super::{GlState, LazyState, StateBackend};
-use std::rc::Rc;
+use std::{error::Error, fmt, rc::Rc};
+
+/// Typed analogue of the `StackOverflowError` raised by the source lazy
+/// initializer when it recursively asks the same Concat for its current state.
+/// Keep this as a panic payload so callers using `catch_unwind` can distinguish
+/// this source failure from unrelated Rust panics.
+#[derive(Debug)]
+pub(crate) struct SourceStackOverflowError;
+
+impl fmt::Display for SourceStackOverflowError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("source GLState.Concat.currentState caused StackOverflowError")
+    }
+}
+
+impl Error for SourceStackOverflowError {}
+
 pub(crate) struct Concat {
     pub states: Vec<Rc<dyn GlState>>,
     current: LazyState,
@@ -22,12 +38,15 @@ impl GlState for Concat {
     }
     fn current_state(&self, _: &mut dyn StateBackend) -> Rc<dyn GlState> {
         self.current.get(|| {
-            // Rust stack overflow aborts rather than Java's throwable error.
-            // Preserve failure without silently substituting a child snapshot.
-            assert!(
-                self.states.is_empty(),
-                "Source GLState.Concat.currentState recursively calls itself for nonempty states"
-            );
+            // The bytecode's nonempty path recursively calls this same lazy
+            // initializer. Represent the resulting JVM StackOverflowError as a
+            // typed, unwind-catchable failure instead of recursing until Rust
+            // aborts or substituting one of the children. LazyState only caches
+            // successful values, so a caught failure leaves the initializer
+            // uninitialized and a later call retries just like Kotlin lazy.
+            if !self.states.is_empty() {
+                std::panic::panic_any(SourceStackOverflowError);
+            }
             Rc::new(Self::new(Vec::new()))
         })
     }
@@ -57,12 +76,19 @@ mod tests {
         let mut backend = Backend::default();
         state.apply(&mut backend);
         assert_eq!(backend.0, [1, 2]);
-        assert!(
-            std::panic::catch_unwind(std::panic::AssertUnwindSafe(
-                || state.current_state(&mut backend)
-            ))
-            .is_err()
-        );
+        // Kotlin's default lazy retries its initializer after an exception;
+        // each nonempty attempt recursively calls the same getter and reaches
+        // StackOverflowError. Verify both the translated error identity and
+        // the retry behavior rather than merely asserting that it panics.
+        for _ in 0..2 {
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                state.current_state(&mut backend)
+            }));
+            match result {
+                Err(failure) => assert!(failure.is::<SourceStackOverflowError>()),
+                Ok(_) => panic!("nonempty source Concat recursively overflows"),
+            }
+        }
         assert_eq!(backend.0, [1, 2]);
     }
     #[test]

@@ -1,5 +1,6 @@
 //! StencilOp.java operation state and source default queries.
 use super::{GlState, LazyState, StateBackend};
+use std::fmt;
 use std::rc::Rc;
 pub(crate) struct StencilOp {
     pub on_failure: i32,
@@ -30,12 +31,48 @@ impl StencilOp {
         let success = success.unwrap_or_else(|| backend.get_integer(2966));
         Self::new(failure, depth_failure, success)
     }
+    pub fn component1(&self) -> i32 {
+        self.on_failure
+    }
+    pub fn component2(&self) -> i32 {
+        self.on_depth_failure
+    }
+    pub fn component3(&self) -> i32 {
+        self.on_success
+    }
+    pub fn copy(&self, on_failure: i32, on_depth_failure: i32, on_success: i32) -> Self {
+        Self::new(on_failure, on_depth_failure, on_success)
+    }
+    /// Kotlin's generated `copy$default` behavior: `None` retains that field.
+    pub fn copy_with_defaults(
+        &self,
+        on_failure: Option<i32>,
+        on_depth_failure: Option<i32>,
+        on_success: Option<i32>,
+    ) -> Self {
+        self.copy(
+            on_failure.unwrap_or(self.on_failure),
+            on_depth_failure.unwrap_or(self.on_depth_failure),
+            on_success.unwrap_or(self.on_success),
+        )
+    }
+    pub fn java_to_string(&self) -> String {
+        format!(
+            "StencilOp(onFailure={}, onDepthFailure={}, onSuccess={})",
+            self.on_failure, self.on_depth_failure, self.on_success
+        )
+    }
     pub fn java_hash(&self) -> i32 {
         self.on_failure
             .wrapping_mul(31)
             .wrapping_add(self.on_depth_failure)
             .wrapping_mul(31)
             .wrapping_add(self.on_success)
+    }
+}
+impl fmt::Display for StencilOp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.java_to_string())
     }
 }
 impl Clone for StencilOp {
